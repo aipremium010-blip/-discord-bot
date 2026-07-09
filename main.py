@@ -1,7 +1,7 @@
 
 new_main_py = '''import discord
 from discord.ext import commands
-from discord.ui import View, Button, Modal, TextInput
+from discord.ui import View, Button, Modal, TextInput, Select
 from discord import app_commands
 import os
 import asyncio
@@ -31,14 +31,15 @@ SUPPORT_ROL_ID = 1524866585637031961
 
 reklam_fiyatlari = {"demir": 50, "altin": 100, "elmas": 200, "netherite": 500}
 
+# === ROL BAŞVURU ===
 class RolBasvuruModal(Modal):
-    def __init__(self, rol_adi):
-        super().__init__(title=f"{rol_adi} Başvuru Formu")
-        self.rol_adi = rol_adi
-    
     proje_adi = TextInput(label="Projenizin / Sunucunuzun Adı", placeholder="Örn: MinecraftTR", required=True)
     kanit = TextInput(label="Kanıt / Discord / Web Linki", placeholder="https://...", required=True)
     detay = TextInput(label="Eklemek istediğiniz detaylar", placeholder="Detaylı bilgi...", required=True, style=discord.TextStyle.paragraph)
+    
+    def __init__(self, rol_adi):
+        super().__init__(title=f"{rol_adi} Başvuru Formu")
+        self.rol_adi = rol_adi
     
     async def on_submit(self, interaction):
         embed = discord.Embed(title=f"📝 {self.rol_adi} Başvurusu", color=discord.Color.gold())
@@ -77,13 +78,14 @@ class RolBasvuruView(View):
     async def icerik_ureticisi(self, interaction, button):
         await interaction.response.send_modal(RolBasvuruModal("İçerik Üreticisi"))
 
+# === DESTEK ===
 class DestekModal(Modal):
+    konu = TextInput(label="Konu başlığı", placeholder="Örn: reklam başvurusu...", required=True)
+    detay = TextInput(label="Detaylı açıklama", placeholder="Sorununuzu anlatın...", required=True, style=discord.TextStyle.paragraph)
+    
     def __init__(self, kategori):
         super().__init__(title=f"{kategori} Talebi")
         self.kategori = kategori
-    
-    konu = TextInput(label="Konu başlığı", placeholder="Örn: reklam başvurusu...", required=True)
-    detay = TextInput(label="Detaylı açıklama", placeholder="Sorununuzu anlatın...", required=True, style=discord.TextStyle.paragraph)
     
     async def on_submit(self, interaction):
         support_rol = interaction.guild.get_role(SUPPORT_ROL_ID)
@@ -141,6 +143,8 @@ class DestekView(View):
     async def destek_select(self, interaction, select):
         kategoriler = {"partnerlik": "🤝 Partnerlik", "sikayet": "⚠️ Şikayet", "yetkili-basvuru": "👮 Yetkili Başvuru", "reklam": "📢 Reklam", "genel": "❓ Genel"}
         await interaction.response.send_modal(DestekModal(kategoriler[select.values[0]]))
+
+# === KOMUTLAR ===
 
 @bot.tree.command(name="selam", description="Selam verir")
 async def slash_selam(interaction):
