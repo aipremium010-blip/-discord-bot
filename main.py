@@ -1,7 +1,7 @@
-
-new_main_py = '''import discord
+import discord
 from discord.ext import commands
 from discord.ui import View, Button, Select, Modal, TextInput
+from discord import app_commands
 import os
 import asyncio
 from flask import Flask
@@ -85,7 +85,6 @@ class RolBasvuruModal(Modal, title="Rol Başvuru Formu"):
         embed.add_field(name="Detaylar", value=self.detay.value, inline=False)
         embed.set_footer(text=f"Başvuru Tarihi: {discord.utils.utcnow().strftime('%d/%m/%Y %H:%M')}")
         
-        # Başvuru kanalına gönder
         basvuru_kanal = discord.utils.get(interaction.guild.text_channels, name="basvurular")
         if basvuru_kanal:
             await basvuru_kanal.send(embed=embed)
@@ -98,7 +97,6 @@ class DestekModal(Modal, title="Destek Talebi"):
     detay = TextInput(label="Detaylı açıklama", placeholder="Sorununuzu detaylıca anlatın...", required=True, style=discord.TextStyle.paragraph)
     
     async def on_submit(self, interaction: discord.Interaction):
-        # Ticket kanalı oluştur
         support_rol = interaction.guild.get_role(1524866585637031961)
         
         overwrites = {
@@ -116,7 +114,7 @@ class DestekModal(Modal, title="Destek Talebi"):
         
         embed = discord.Embed(
             title=f"🎫 Destek Talebi: {self.konu.value}",
-            description=f"{interaction.user.mention} tarafından oluşturuldu.\\n\\n**Detay:**\\n{self.detay.value}",
+            description=f"{interaction.user.mention} tarafından oluşturuldu.\n\n**Detay:**\n{self.detay.value}",
             color=discord.Color.green()
         )
         embed.add_field(name="Kategori", value="Destek", inline=True)
@@ -129,7 +127,6 @@ class DestekModal(Modal, title="Destek Talebi"):
         else:
             await channel.send(embed=embed)
         
-        # Kapat butonu
         kapat_view = View(timeout=None)
         kapat_btn = Button(label="Talebi Kapat", style=discord.ButtonStyle.danger, custom_id="kapat_ticket")
         
@@ -216,10 +213,9 @@ async def slash_yardim(interaction: discord.Interaction):
     await interaction.response.send_message(help_text)
 
 @bot.tree.command(name="ilan-ver", description="Pazar alanında ilan oluşturur")
-@discord.app_commands.describe(urun="Ürün adı", fiyat="Ürün fiyatı", aciklama="Ürün açıklaması")
+@app_commands.describe(urun="Ürün adı", fiyat="Ürün fiyatı", aciklama="Ürün açıklaması")
 async def slash_ilan_ver(interaction: discord.Interaction, urun: str, fiyat: str, aciklama: str):
-    # Belirtilen kanal ID'sini kullan
-    pazar_channel = bot.get_channel(1524866586912227330)
+    pazar_channel = interaction.guild.get_channel(1524866586912227330)
     if not pazar_channel:
         await interaction.response.send_message("❌ Pazar alanı kanalı bulunamadı!", ephemeral=True)
         return
@@ -240,8 +236,8 @@ async def slash_destek(interaction: discord.Interaction):
     await interaction.response.send_modal(modal)
 
 @bot.tree.command(name="mesaj", description="Belirtilen kanala embed mesaj gönderir (Yetkili)")
-@discord.app_commands.checks.has_permissions(administrator=True)
-@discord.app_commands.describe(kanal="Mesajın gönderileceği kanal", baslik="Mesaj başlığı", mesaj="Gönderilecek mesaj", renk="Embed rengi (kirmizi, yesil, mavi, sari, mor)")
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.describe(kanal="Mesajın gönderileceği kanal", baslik="Mesaj başlığı", mesaj="Gönderilecek mesaj", renk="Embed rengi (kirmizi, yesil, mavi, sari, mor)")
 async def slash_mesaj(interaction: discord.Interaction, kanal: discord.TextChannel, mesaj: str, baslik: str = None, renk: str = "mavi"):
     renkler = {
         "kirmizi": discord.Color.red(),
@@ -265,11 +261,11 @@ async def slash_mesaj(interaction: discord.Interaction, kanal: discord.TextChann
 
 @slash_mesaj.error
 async def slash_mesaj_error(interaction: discord.Interaction, error):
-    if isinstance(error, discord.app_commands.MissingPermissions):
+    if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message("❌ Bu komutu kullanmak için yönetici yetkisine sahip olmalısınız!", ephemeral=True)
 
 @bot.tree.command(name="rol-basvuru", description="Rol başvuru paneli oluşturur (Yetkili)")
-@discord.app_commands.checks.has_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
 async def slash_rol_basvuru(interaction: discord.Interaction):
     embed = discord.Embed(
         title="👑 Ünvan Doğrulama Başvuruları",
@@ -279,7 +275,7 @@ async def slash_rol_basvuru(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, view=RolBasvuruView())
 
 @bot.tree.command(name="destek-panel", description="Destek paneli oluşturur (Yetkili)")
-@discord.app_commands.checks.has_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
 async def slash_destek_panel(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🎫 Destek Sistemi",
@@ -314,7 +310,3 @@ async def on_ready():
 # BOTU BAŞLAT
 print("Bot başlatılıyor...")
 bot.run(os.environ['DISCORD_TOKEN'])
-'''
-
-print("Kod hazırlandı!")
-print(f"Kod uzunluğu: {len(new_main_py)} karakter")
