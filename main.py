@@ -1,4 +1,5 @@
-import discord
+
+new_main_py = '''import discord
 from discord.ext import commands
 from discord.ui import View, Button, Modal, TextInput
 from discord import app_commands
@@ -96,7 +97,7 @@ class DestekModal(Modal):
         
         channel = await interaction.guild.create_text_channel(name=f"destek-{interaction.user.name}", overwrites=overwrites)
         
-        embed = discord.Embed(title=f"🎫 Destek Talebi: {self.konu.value}", color=discord.Color.green())
+        embed = discord.Embed(title=f"🔔 Destek Talebi: {self.konu.value}", color=discord.Color.green())
         embed.add_field(name="Kategori", value=self.kategori, inline=True)
         embed.add_field(name="Kullanıcı", value=interaction.user.mention, inline=True)
         embed.add_field(name="Detay", value=self.detay.value, inline=False)
@@ -252,7 +253,7 @@ async def slash_sil_error(interaction, error):
 async def slash_reklam_fiyat_ayarla(interaction, paket: str, fiyat: int):
     paket = paket.lower()
     if paket not in reklam_fiyatlari:
-        await interaction.response.send_message("❌ Geçersiz paket!", ephemeral=True)
+        await interaction.response.send_message("❌ Geçersiz paket! demir, altin, elmas, netherite seçeneklerinden birini girin.", ephemeral=True)
         return
     reklam_fiyatlari[paket] = fiyat
     await interaction.response.send_message(f"✅ {paket.capitalize()} Paket fiyatı {fiyat}₺ olarak güncellendi!", ephemeral=True)
@@ -260,7 +261,7 @@ async def slash_reklam_fiyat_ayarla(interaction, paket: str, fiyat: int):
 @slash_reklam_fiyat_ayarla.error
 async def slash_reklam_fiyat_ayarla_error(interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("❌ Yetkiniz yok!", ephemeral=True)
+        await interaction.response.send_message("❌ Bu komutu kullanmak için yönetici yetkisine sahip olmalısınız!", ephemeral=True)
 
 @bot.tree.command(name="mesaj", description="Belirtilen kanala embed mesaj gönderir (Yetkili)")
 @app_commands.checks.has_permissions(administrator=True)
@@ -289,7 +290,7 @@ async def slash_rol_basvuru(interaction):
 @bot.tree.command(name="destek-panel", description="Destek paneli oluşturur (Yetkili)")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_destek_panel(interaction):
-    embed = discord.Embed(title="🎫 Destek Menüsü", description="Aşağıdaki menüden destek talebi açabilirsiniz.\n\n• Yetkilileri meşgul etmek yasaktır.\n• Destek taleplerinizi kategorilere göre açın.\n• Uygun kanal seçildikten sonra destek ekibi bilgilendirilecektir.", color=discord.Color.blurple())
+    embed = discord.Embed(title="🔔 Destek Menüsü", description="Aşağıdaki menüden destek talebi açabilirsiniz.\n\n• Yetkilileri meşgul etmek yasaktır.\n• Destek taleplerinizi kategorilere göre açın.\n• Uygun kanal seçildikten sonra destek ekibi bilgilendirilecektir.", color=discord.Color.blurple())
     await interaction.response.send_message(embed=embed, view=DestekView())
 
 @bot.event
@@ -321,3 +322,8 @@ async def on_ready():
 
 print("Bot başlatılıyor...")
 bot.run(os.environ['DISCORD_TOKEN'])
+'''
+
+print("Kod hazırlandı!")
+print(f"Kod uzunluğu: {len(new_main_py)} karakter")
+
