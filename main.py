@@ -1,5 +1,4 @@
-
-new_main_py = '''import discord
+import discord
 from discord.ext import commands
 from discord.ui import View, Button, Select
 from discord import app_commands
@@ -35,7 +34,7 @@ reklam_fiyatlari = {"demir": 50, "altin": 100, "elmas": 200, "netherite": 500}
 class TicketKapatView(View):
     def __init__(self):
         super().__init__(timeout=None)
-    
+
     @discord.ui.button(label="🔒 Talebi Kapat", style=discord.ButtonStyle.danger)
     async def kapat(self, interaction: discord.Interaction, button: Button):
         support_rol = interaction.guild.get_role(SUPPORT_ROL_ID)
@@ -49,7 +48,7 @@ class TicketKapatView(View):
 class TicketOlusturView(View):
     def __init__(self):
         super().__init__(timeout=None)
-    
+
     @discord.ui.select(
         placeholder="Bir kategori seçerek destek talebi açabilirsiniz...",
         options=[
@@ -70,7 +69,7 @@ class TicketOlusturView(View):
         }
         kategori = kategoriler[select.values[0]]
         support_rol = interaction.guild.get_role(SUPPORT_ROL_ID)
-        
+
         overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
             interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
@@ -78,27 +77,27 @@ class TicketOlusturView(View):
         }
         if support_rol:
             overwrites[support_rol] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
-        
+
         channel = await interaction.guild.create_text_channel(
             name=f"ticket-{interaction.user.name}",
             overwrites=overwrites
         )
-        
+
         embed = discord.Embed(
             title=f"🔔 Destek Talebi: {kategori}",
-            description=f"{interaction.user.mention} tarafından oluşturuldu.\\n\\nYardımcı olabilmemiz için sorununuzu detaylıca anlatın.",
+            description=f"{interaction.user.mention} tarafından oluşturuldu.\n\nYardımcı olabilmemiz için sorununuzu detaylıca anlatın.",
             color=discord.Color.green()
         )
         embed.add_field(name="Kategori", value=kategori, inline=True)
         embed.add_field(name="Kullanıcı", value=interaction.user.mention, inline=True)
         embed.add_field(name="Kullanıcı ID", value=interaction.user.id, inline=True)
         embed.set_footer(text=f"Açılış Zamanı: {discord.utils.utcnow().strftime('%d/%m/%Y %H:%M')}")
-        
+
         if support_rol:
             await channel.send(f"{support_rol.mention} Yeni destek talebi!", embed=embed)
         else:
             await channel.send(embed=embed)
-        
+
         await channel.send(view=TicketKapatView())
         await interaction.response.send_message(f"✅ Destek talebiniz açıldı: {channel.mention}", ephemeral=True)
 
@@ -106,38 +105,38 @@ class TicketOlusturView(View):
 class RolBasvuruButonView(View):
     def __init__(self):
         super().__init__(timeout=None)
-    
+
     @discord.ui.button(label="👑 Sunucu Sahibi", style=discord.ButtonStyle.primary)
     async def sunucu_sahibi(self, interaction: discord.Interaction, button: Button):
         await self.basvuru_yap(interaction, "Sunucu Sahibi")
-    
+
     @discord.ui.button(label="⚔️ Klan Sahibi", style=discord.ButtonStyle.primary)
     async def klan_sahibi(self, interaction: discord.Interaction, button: Button):
         await self.basvuru_yap(interaction, "Klan Sahibi")
-    
+
     @discord.ui.button(label="🎥 Yayıncı", style=discord.ButtonStyle.primary)
     async def yayinci(self, interaction: discord.Interaction, button: Button):
         await self.basvuru_yap(interaction, "Yayıncı")
-    
+
     @discord.ui.button(label="🖥️ Hosting Sahibi", style=discord.ButtonStyle.primary)
     async def hosting_sahibi(self, interaction: discord.Interaction, button: Button):
         await self.basvuru_yap(interaction, "Hosting Sahibi")
-    
+
     @discord.ui.button(label="📝 İçerik Üreticisi", style=discord.ButtonStyle.primary)
     async def icerik_ureticisi(self, interaction: discord.Interaction, button: Button):
         await self.basvuru_yap(interaction, "İçerik Üreticisi")
-    
+
     async def basvuru_yap(self, interaction: discord.Interaction, rol_adi: str):
         await interaction.response.send_message(
-            f"**{rol_adi} Başvuru Formu**\\n\\n"
-            f"Başvurunuzu tamamlamak için lütfen şu bilgileri **bu kanala** yazın:\\n"
-            f"1. **Projenizin/Sunucunuzun Adı:**\\n"
-            f"2. **Kanıt/Discord/Web Linki:**\\n"
-            f"3. **Detaylar:**\\n\\n"
+            f"**{rol_adi} Başvuru Formu**\n\n"
+            f"Başvurunuzu tamamlamak için lütfen şu bilgileri **bu kanala** yazın:\n"
+            f"1. **Projenizin/Sunucunuzun Adı:**\n"
+            f"2. **Kanıt/Discord/Web Linki:**\n"
+            f"3. **Detaylar:**\n\n"
             f"Başvurunuz incelendikten sonra size dönüş yapılacaktır.",
             ephemeral=True
         )
-        
+
         # Kullanıcıya DM gönder
         try:
             dm_embed = discord.Embed(
@@ -305,7 +304,7 @@ async def slash_rol_basvuru(interaction: discord.Interaction):
 async def slash_destek_panel(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🔔 Destek Menüsü",
-        description="Aşağıdaki menüden destek talebi açabilirsiniz.\\n\\n• Yetkilileri meşgul etmek yasaktır.\\n• Destek taleplerinizi kategorilere göre açın.\\n• Uygun kanal seçildikten sonra destek ekibi bilgilendirilecektir.",
+        description="Aşağıdaki menüden destek talebi açabilirsiniz.\n\n• Yetkilileri meşgul etmek yasaktır.\n• Destek taleplerinizi kategorilere göre açın.\n• Uygun kanal seçildikten sonra destek ekibi bilgilendirilecektir.",
         color=discord.Color.blurple()
     )
     await interaction.response.send_message(embed=embed, view=TicketOlusturView())
@@ -339,12 +338,3 @@ async def on_ready():
 
 print("Bot başlatılıyor...")
 bot.run(os.environ['DISCORD_TOKEN'])
-'''
-
-# Dosyaya kaydet
-with open('/mnt/agents/output/main.py', 'w', encoding='utf-8') as f:
-    f.write(new_main_py)
-
-print("Kod hazırlandı ve dosyaya kaydedildi!")
-print(f"Dosya yolu: /mnt/agents/output/main.py")
-print(f"Kod uzunluğu: {len(new_main_py)} karakter")
