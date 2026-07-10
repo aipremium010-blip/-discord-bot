@@ -101,14 +101,15 @@ def parse_duration(duration_str: str) -> int:
     return None
 
 # =====================================================================
-# === ROL BAŞVURU SİSTEMİ ===
+# === UNVAN & YETKİLİ BAŞVURU SİSTEMLERİ ===
 # =====================================================================
 
 class RolKararView(View):
-    def __init__(self, basvuran_id: int, rol_adi: str):
+    def __init__(self, basvuran_id: int, rol_adi: str, basvuru_tipi: str = "Unvan"):
         super().__init__(timeout=None)
         self.basvuran_id = basvuran_id
         self.rol_adi = rol_adi
+        self.basvuru_tipi = basvuru_tipi
 
     @discord.ui.button(label="Onayla", style=discord.ButtonStyle.success, emoji="✅", custom_id="basvuru_onayla_btn")
     async def onayla(self, interaction: discord.Interaction, button: discord.Button):
@@ -120,15 +121,19 @@ class RolKararView(View):
         await interaction.response.defer()
         guild = interaction.guild
         member = guild.get_member(self.basvuran_id)
-        hedef_rol_id = ROL_IDLERI.get(self.rol_adi)
-        hedef_rol = guild.get_role(hedef_rol_id) if hedef_rol_id else None
-
-        rol_durumu = "Rol otomatik tanımlandı."
-        if member and hedef_rol:
-            try: await member.add_roles(hedef_rol)
-            except Exception: rol_durumu = "Rol tanımlanırken yetki hatası oluştu."
-        else:
-            rol_durumu = "Kullanıcı bulunamadı veya rol geçersiz."
+        
+        rol_durumu = "Başvuru onaylandı."
+        if self.basvuru_tipi == "Unvan":
+            hedef_rol_id = ROL_IDLERI.get(self.rol_adi)
+            hedef_rol = guild.get_role(hedef_rol_id) if hedef_rol_id else None
+            if member and hedef_rol:
+                try: 
+                    await member.add_roles(hedef_rol)
+                    rol_durumu = "Unvan rolü otomatik tanımlandı."
+                except Exception: 
+                    rol_durumu = "Rol tanımlanırken yetki hatası oluştu."
+            else:
+                rol_durumu = "Kullanıcı bulunamadı veya unvan rolü geçersiz."
 
         eski_embed = interaction.message.embeds[0]
         yeni_embed = discord.Embed(title=eski_embed.title, color=discord.Color.green(), timestamp=eski_embed.timestamp)
@@ -142,7 +147,7 @@ class RolKararView(View):
         await interaction.message.edit(embed=yeni_embed, view=None)
         
         if member:
-            try: await member.send(f"🎉 **{interaction.guild.name}** sunucusundaki **{self.rol_adi}** başvurunuz onaylandı!")
+            try: await member.send(f"🎉 **{interaction.guild.name}** sunucusundaki **{self.rol_adi}** ({self.basvuru_tipi}) başvurunuz onaylandı!")
             except discord.Forbidden: pass
 
     @discord.ui.button(label="Reddet", style=discord.ButtonStyle.danger, emoji="❌", custom_id="basvuru_reddet_btn")
@@ -154,11 +159,12 @@ class RolKararView(View):
 
         class RedGerekceModal(Modal, title="Başvuru Reddetme Sebebi"):
             sebep = TextInput(label="Reddetme Detayları / Sebebi", placeholder="Gerekçe giriniz...", required=True)
-            def __init__(self, basvuran_id, rol_adi, orijinal_mesaj):
+            def __init__(self, basvuran_id, rol_adi, orijinal_mesaj, basvuru_tipi):
                 super().__init__()
                 self.basvuran_id = basvuran_id
                 self.rol_adi = rol_adi
                 self.orijinal_mesaj = orijinal_mesaj
+                self.basvuru_tipi = basvuru_tipi
 
             async def on_submit(self, modal_interaction: discord.Interaction):
                 await modal_interaction.response.defer()
@@ -176,11 +182,12 @@ class RolKararView(View):
 
                 member = modal_interaction.guild.get_member(self.basvuran_id)
                 if member:
-                    try: await member.send(f"❌ **{modal_interaction.guild.name}** sunucusundaki **{self.rol_adi}** başvurunuz reddedildi.\n**Sebep:** {self.sebep.value}")
+                    try: await member.send(f"❌ **{modal_interaction.guild.name}** sunucusundaki **{self.rol_adi}** ({self.basvuru_tipi}) başvurunuz reddedildi.\n**Sebep:** {self.sebep.value}")
                     except discord.Forbidden: pass
 
-        await interaction.response.send_modal(RedGerekceModal(self.basvuran_id, self.rol_adi, interaction.message))
+        await interaction.response.send_modal(RedGerekceModal(self.basvuran_id, self.rol_adi, interaction.message, self.basvuru_tipi))
 
+# Unvan Başvuru Formu
 class RolBasvuruModal(Modal):
     def __init__(self, rol_adi: str):
         super().__init__(title=f"{rol_adi} Başvuru Formu")
@@ -198,18 +205,18 @@ class RolBasvuruModal(Modal):
             return
 
         suan = datetime.now()
-        embed = discord.Embed(title=f"{self.rol_adi} Başvurusu", color=discord.Color.from_rgb(241, 196, 15), timestamp=suan)
+        embed = discord.Embed(title=f"👑 {self.rol_adi} Başvurusu", color=discord.Color.from_rgb(241, 196, 15), timestamp=suan)
         embed.add_field(name="Başvuran", value=interaction.user.mention, inline=False)
-        embed.add_field(name="Rol", value=self.rol_adi, inline=False)
+        embed.add_field(name="Talep Edilen Unvan", value=self.rol_adi, inline=False)
         embed.add_field(name="Proje Adı", value=self.proje_adi.value, inline=False)
         embed.add_field(name="Kanıt Linki", value=self.kanit_linki.value, inline=False)
         embed.add_field(name="Durum", value="⌛ Beklemede...", inline=False)
         embed.add_field(name="Başvuru Tarihi", value=suan.strftime("%d/%m/%Y %H:%M"), inline=False)
         embed.set_footer(text=f"Kullanıcı ID: {interaction.user.id}")
 
-        view = RolKararView(basvuran_id=interaction.user.id, rol_adi=self.rol_adi)
+        view = RolKararView(basvuran_id=interaction.user.id, rol_adi=self.rol_adi, basvuru_tipi="Unvan")
         await basvuru_kanali.send(embed=embed, view=view)
-        await interaction.followup.send("✅ Başvurunuz başarıyla yetkililere iletildi!", ephemeral=True)
+        await interaction.followup.send("✅ Unvan başvurunuz başarıyla yetkililere iletildi!", ephemeral=True)
 
 class RolBasvuruView(View):
     def __init__(self): super().__init__(timeout=None)
@@ -228,6 +235,60 @@ class RolBasvuruView(View):
     @discord.ui.button(label="İçerik Üreticisi", style=discord.ButtonStyle.primary, emoji="🎬", custom_id="basvuru_icerik_ureticisi")
     async def icerik_ureticisi(self, interaction: discord.Interaction, button: discord.Button): 
         try: await interaction.response.send_modal(RolBasvuruModal("İçerik Üreticisi"))
+        except Exception: pass
+
+# --- YETKİLİ BAŞVURU SİSTEMİ ALTYAPISI ---
+class YetkiliBasvuruModal(Modal):
+    def __init__(self, yetki_adi: str):
+        super().__init__(title=f"{yetki_adi} Başvuru Formu")
+        self.yetki_adi = yetki_adi
+        self.isim_yas = TextInput(label="Adınız ve Yaşınız", placeholder="Örn: Ahmet / 18", required=True)
+        self.deneyim = TextInput(label="Daha Önceki Deneyimleriniz", placeholder="Hangi sunucularda görev aldınız?", style=discord.TextStyle.paragraph, required=True)
+        self.aktiflik = TextInput(label="Günlük Aktiflik Süreniz", placeholder="Günde kaç saat aktif olabilirsiniz?", required=True)
+        self.neden_biz = TextInput(label="Neden Sizi Seçmeliyiz?", placeholder="Kendinizi kısaca açıklayın...", style=discord.TextStyle.paragraph, required=True)
+        
+        self.add_item(self.isim_yas)
+        self.add_item(self.deneyim)
+        self.add_item(self.aktiflik)
+        self.add_item(self.neden_biz)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        basvuru_kanali = interaction.guild.get_channel(BASVURU_KANAL_ID)
+        if not basvuru_kanali:
+            await interaction.followup.send("❌ Başvuru kanalı bulunamadı!", ephemeral=True)
+            return
+
+        suan = datetime.now()
+        embed = discord.Embed(title=f"📙 Yeni Yetkili Başvurusu", color=discord.Color.blue(), timestamp=suan)
+        embed.add_field(name="Başvuran", value=interaction.user.mention, inline=True)
+        embed.add_field(name="Hedef Pozisyon", value=self.yetki_adi, inline=True)
+        embed.add_field(name="Ad / Yaş", value=self.isim_yas.value, inline=False)
+        embed.add_field(name="Deneyimler", value=self.deneyim.value, inline=False)
+        embed.add_field(name="Aktiflik Süresi", value=self.aktiflik.value, inline=False)
+        embed.add_field(name="Neden Biz?", value=self.neden_biz.value, inline=False)
+        embed.add_field(name="Durum", value="⌛ İnceleme Bekliyor...", inline=False)
+        embed.set_footer(text=f"Kullanıcı ID: {interaction.user.id}")
+
+        view = RolKararView(basvuran_id=interaction.user.id, rol_adi=self.yetki_adi, basvuru_tipi="Yetkili Ekibi")
+        await basvuru_kanali.send(embed=embed, view=view)
+        await interaction.followup.send("✅ Yetkili başvurunuz başarıyla yönetim ekibine iletildi!", ephemeral=True)
+
+class YetkiliBasvuruView(View):
+    def __init__(self): super().__init__(timeout=None)
+    @discord.ui.button(label="Yönetici Başvurusu", style=discord.ButtonStyle.primary, emoji="🛡️", custom_id="yetkili_yonetici_btn")
+    async def yonetici(self, interaction: discord.Interaction, button: discord.Button):
+        try: await interaction.response.send_modal(YetkiliBasvuruModal("Yönetici"))
+        except Exception: pass
+
+    @discord.ui.button(label="Moderator Başvurusu", style=discord.ButtonStyle.primary, emoji="⚔️", custom_id="yetkili_mod_btn")
+    async def moderator(self, interaction: discord.Interaction, button: discord.Button):
+        try: await interaction.response.send_modal(YetkiliBasvuruModal("Moderator"))
+        except Exception: pass
+
+    @discord.ui.button(label="Tasarımcı Başvurusu", style=discord.ButtonStyle.primary, emoji="🎨", custom_id="yetkili_tasarim_btn")
+    async def tasarimci(self, interaction: discord.Interaction, button: discord.Button):
+        try: await interaction.response.send_modal(YetkiliBasvuruModal("Tasarımcı"))
         except Exception: pass
 
 # =====================================================================
@@ -314,6 +375,20 @@ class PanelAnaView(View):
 # === GLOBAL SLASH KOMUTLARI ===
 # =====================================================================
 
+# --- YETKİLİ BAŞVURU PANELİ KOMUTU ---
+@bot.tree.command(name="yetkili-paneli", description="Yetkili ekibi alım/başvuru panelini gönderir (Yönetici).")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_yetkili_paneli(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+    embed = discord.Embed(
+        title="📙 Sunucu Yetkili Alımları", 
+        description="Sunucu ekibimize katılarak projemizin büyümesine destek olmak ister misiniz?\n\nBaşvurmak istediğiniz rolün altındaki butona basarak formu doldurun.", 
+        color=discord.Color.from_rgb(52, 152, 219)
+    )
+    if 'BANNER_URL' in globals() and BANNER_URL.startswith("http"): embed.set_image(url=BANNER_URL)
+    await interaction.channel.send(embed=embed, view=YetkiliBasvuruView())
+    await interaction.followup.send("✅ Yetkili Başvuru Paneli başarıyla kuruldu!", ephemeral=True)
+
 # --- ANKET KOMUTU ---
 @bot.tree.command(name="anket", description="Sunucuda oylamalı anket başlatır (Yönetici).")
 @app_commands.checks.has_permissions(administrator=True)
@@ -332,7 +407,7 @@ async def slash_anket(interaction: discord.Interaction, soru: str, secenek1: str
     
     await interaction.followup.send("✅ Anket başarıyla oluşturuldu!", ephemeral=True)
 
-# --- DÜZELTİLEN MESAJ KOMUTU (Kanalda Paylaşır) ---
+# --- MESAJ KOMUTU ---
 @bot.tree.command(name="mesaj", description="Belirtilen kanala bot adıyla normal bir mesaj gönderir (Yönetici).")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_mesaj(interaction: discord.Interaction, kanal: discord.TextChannel, mesaj: str):
@@ -343,7 +418,7 @@ async def slash_mesaj(interaction: discord.Interaction, kanal: discord.TextChann
     except discord.Forbidden:
         await interaction.followup.send("❌ O kanala mesaj göndermek için botun yeterli yetkisi yok!", ephemeral=True)
 
-# --- ESKİ KLASİK KOMUTLAR VE DİĞERLERİ ---
+# --- DİĞER KOMUTLAR ---
 @bot.tree.command(name="selam", description="Botla selamlaşırsınız.")
 async def slash_selam(interaction: discord.Interaction):
     await interaction.response.send_message(f"Aleyküm Selam {interaction.user.mention}, hoş geldin! projemize destek verdiğin için teşekkürler.")
@@ -360,6 +435,7 @@ async def slash_yardim(interaction: discord.Interaction):
     embed.add_field(name="/anket", value="[Yönetici] 2 seçenekli anket açar.", inline=True)
     embed.add_field(name="/cekilis", value="[Yönetici] Canlı butonlu çekiliş başlatır.", inline=True)
     embed.add_field(name="/rol-basvuru", value="[Yönetici] Rol başvuru panelini gönderir.", inline=True)
+    embed.add_field(name="/yetkili-paneli", value="[Yönetici] Yetkili alım panelini kurar.", inline=True)
     embed.add_field(name="/destek-panel", value="[Yönetici] Destek (Ticket) panelini kurar.", inline=True)
     embed.add_field(name="/sil", value="[Yönetici] Belirtilen miktarda mesajı temizler.", inline=True)
     embed.add_field(name="/mesaj", value="[Yönetici] Belirtilen kanala bot adıyla yazı yazar.", inline=True)
@@ -455,6 +531,7 @@ async def on_ready():
     print(f"Bot sorunsuzca aktif: {bot.user}")
     bot.add_view(PanelAnaView())
     bot.add_view(RolBasvuruView())
+    bot.add_view(YetkiliBasvuruView())
     bot.add_view(TicketIciAksiyonView())
     
     try:
