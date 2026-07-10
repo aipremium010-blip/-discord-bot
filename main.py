@@ -1,20 +1,27 @@
 
+
 code = '''import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ui import View, Button, Select, Modal, TextInput
 from discord import app_commands
 import os
 import asyncio
+import time
 from datetime import datetime
 from flask import Flask
 from threading import Thread
+import requests
 
 # === WEB SERVER (Render icin keep-alive) ===
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot aktif! 🚀"
+    return f"Bot aktif! Son ping: {datetime.now().strftime('%H:%M:%S')}"
+
+@app.route('/ping')
+def ping():
+    return "pong"
 
 def run_web():
     app.run(host='0.0.0.0', port=8080)
@@ -475,6 +482,23 @@ async def slash_destek_panel(interaction):
     )
     await interaction.response.send_message(embed=embed, view=DestekPanelView())
 
+# === KEEP ALIVE - BOT HIC UYUMASIN ===
+@tasks.loop(minutes=1)
+async def keep_alive():
+    try:
+        # Kendi web server'ina ping at
+        requests.get("http://localhost:8080/ping", timeout=5)
+    except:
+        pass
+    
+    # Discord heartbeat kontrol
+    if bot.is_closed():
+        print("Bot baglanti kesilmis! Yeniden baglaniliyor...")
+        try:
+            await bot.start(TOKEN)
+        except Exception as e:
+            print(f"Yeniden baglanma hatasi: {e}")
+
 # === GREET ===
 @bot.event
 async def on_member_join(member):
@@ -508,6 +532,15 @@ async def on_message(message):
             await message.add_reaction("❌")
     await bot.process_commands(message)
 
+# === BAGLANTI KORUMA ===
+@bot.event
+async def on_disconnect():
+    print(f"Baglanti kesildi! {datetime.now().strftime('%H:%M:%S')}")
+
+@bot.event
+async def on_resumed():
+    print(f"Baglanti yenilendi! {datetime.now().strftime('%H:%M:%S')}")
+
 # === ON_READY ===
 _synced = False
 
@@ -533,6 +566,9 @@ async def on_ready():
         activity=discord.Activity(type=discord.ActivityType.watching, name="/yardim"),
         status=discord.Status.online
     )
+    
+    # Keep alive baslat
+    keep_alive.start()
 
 # === BASLAT ===
 print("Bot baslatiliyor...")
@@ -543,7 +579,7 @@ if not TOKEN:
     print("Lutfen Environment Variables'dan DISCORD_TOKEN'i ayarlayin.")
     exit(1)
 
-bot.run(TOKEN)
+bot.run(TOKEN, reconnect=True)
 '''
 
 with open('/mnt/agents/output/main.py', 'w', encoding='utf-8') as f:
