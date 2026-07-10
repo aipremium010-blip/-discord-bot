@@ -532,7 +532,15 @@ async def on_ready():
 
 # === BASLAT ===
 print("Bot baslatiliyor...")
-bot.run(os.environ['DISCORD_TOKEN'])
+
+# TOKEN - Environment variable'dan al, yoksa buradakini kullan
+TOKEN = os.environ.get('DISCORD_TOKEN', '')
+if not TOKEN:
+    print("HATA: DISCORD_TOKEN bulunamadi!")
+    print("Lutfen Environment Variables'dan DISCORD_TOKEN'i ayarlayin.")
+    exit(1)
+
+bot.run(TOKEN)
 '''
 
 with open('/mnt/agents/output/main.py', 'w', encoding='utf-8') as f:
