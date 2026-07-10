@@ -314,7 +314,7 @@ class PanelAnaView(View):
 # === GLOBAL SLASH KOMUTLARI ===
 # =====================================================================
 
-# --- YENİ: Anket Komutu ---
+# --- ANKET KOMUTU ---
 @bot.tree.command(name="anket", description="Sunucuda oylamalı anket başlatır (Yönetici).")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_anket(interaction: discord.Interaction, soru: str, secenek1: str, secenek2: str):
@@ -332,7 +332,18 @@ async def slash_anket(interaction: discord.Interaction, soru: str, secenek1: str
     
     await interaction.followup.send("✅ Anket başarıyla oluşturuldu!", ephemeral=True)
 
-# --- GERİ GETİRİLENLER: Eski Klasik Komutlar ---
+# --- DÜZELTİLEN MESAJ KOMUTU (Kanalda Paylaşır) ---
+@bot.tree.command(name="mesaj", description="Belirtilen kanala bot adıyla normal bir mesaj gönderir (Yönetici).")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_mesaj(interaction: discord.Interaction, kanal: discord.TextChannel, mesaj: str):
+    await interaction.response.defer(ephemeral=True)
+    try:
+        await kanal.send(mesaj)
+        await interaction.followup.send(f"✅ Mesaj {kanal.mention} kanalında başarıyla paylaşıldı.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.followup.send("❌ O kanala mesaj göndermek için botun yeterli yetkisi yok!", ephemeral=True)
+
+# --- ESKİ KLASİK KOMUTLAR VE DİĞERLERİ ---
 @bot.tree.command(name="selam", description="Botla selamlaşırsınız.")
 async def slash_selam(interaction: discord.Interaction):
     await interaction.response.send_message(f"Aleyküm Selam {interaction.user.mention}, hoş geldin! projemize destek verdiğin için teşekkürler.")
@@ -340,16 +351,6 @@ async def slash_selam(interaction: discord.Interaction):
 @bot.tree.command(name="ping", description="Botun anlık gecikme süresini ölçer.")
 async def slash_ping(interaction: discord.Interaction):
     await interaction.response.send_message(f"🏓 Pong! Gecikme Süresi: **{round(bot.latency * 1000)}ms**")
-
-@bot.tree.command(name="mesaj", description="Belirtilen kullanıcıya bot aracılığıyla DM gönderir (Yönetici).")
-@app_commands.checks.has_permissions(administrator=True)
-async def slash_mesaj(interaction: discord.Interaction, kullanici: discord.User, mesaj: str):
-    await interaction.response.defer(ephemeral=True)
-    try:
-        await kullanici.send(mesaj)
-        await interaction.followup.send(f"✅ {kullanici.name} adlı kullanıcıya mesaj başarıyla gönderildi.", ephemeral=True)
-    except discord.Forbidden:
-        await interaction.followup.send("❌ Kullanıcının DM kutusu kapalı olduğu için mesaj gönderilemedi.", ephemeral=True)
 
 @bot.tree.command(name="yardim", description="Botun tüm komutlarını ve kullanım amaçlarını listeler.")
 async def slash_yardim(interaction: discord.Interaction):
@@ -361,11 +362,10 @@ async def slash_yardim(interaction: discord.Interaction):
     embed.add_field(name="/rol-basvuru", value="[Yönetici] Rol başvuru panelini gönderir.", inline=True)
     embed.add_field(name="/destek-panel", value="[Yönetici] Destek (Ticket) panelini kurar.", inline=True)
     embed.add_field(name="/sil", value="[Yönetici] Belirtilen miktarda mesajı temizler.", inline=True)
-    embed.add_field(name="/mesaj", value="[Yönetici] Bir kullanıcıya bot üzerinden DM atar.", inline=True)
+    embed.add_field(name="/mesaj", value="[Yönetici] Belirtilen kanala bot adıyla yazı yazar.", inline=True)
     if 'BANNER_URL' in globals() and BANNER_URL.startswith("http"): embed.set_image(url=BANNER_URL)
     await interaction.response.send_message(embed=embed)
 
-# --- HALİHAZIRDA OLAN YÖNETİM KOMUTLARI ---
 @bot.tree.command(name="cekilis", description="Canlı butonlu bir çekiliş başlatır (Yönetici).")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_cekilis(interaction: discord.Interaction, süre: str, ödül: str, kazananlar: int = 1):
@@ -459,7 +459,7 @@ async def on_ready():
     
     try:
         await bot.tree.sync()
-        print("Tüm global slash komutları (Eskiler + Çekiliş + Anket) başarıyla yüklendi!")
+        print("Tüm global komutlar başarıyla senkronize edildi!")
     except Exception as e: 
         print(f"Senkronizasyon Hatası: {e}")
 
