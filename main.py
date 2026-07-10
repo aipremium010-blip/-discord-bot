@@ -41,7 +41,7 @@ LOG_KANAL_ID = 1524879141793435689
 PAZAR_KANAL_ID = 1524866586912227330
 SUPPORT_ROL_ID = 1524866585637031961
 
-# === BANNER / LOGO URL (MTTS Tasarımı) ===
+# === BANNER / LOGO URL ===
 BANNER_URL = "https://images-ext-1.discordapp.net/external/re_m7v0e0_tA83Yw_4X2A2r3V8M/https/cdn.discordapp.com/attachments/1258071850123530341/1260613271783440465/image_42fd48.png"
 
 ROL_IDLERI = {
@@ -60,7 +60,7 @@ TICKET_KATEGORILERI = {
 }
 
 # =====================================================================
-# === 1. GELİŞMİŞ HATA ÖNLEYİCİ ÇEKİLİŞ SİSTEMİ ===
+# === ÇEKİLİŞ ALTYAPISI ===
 # =====================================================================
 
 class CekilisKatilView(View):
@@ -101,7 +101,7 @@ def parse_duration(duration_str: str) -> int:
     return None
 
 # =====================================================================
-# === 2. Gelişmiş ROL BAŞVURU SİSTEMİ ===
+# === ROL BAŞVURU SİSTEMİ ===
 # =====================================================================
 
 class RolKararView(View):
@@ -231,7 +231,7 @@ class RolBasvuruView(View):
         except Exception: pass
 
 # =====================================================================
-# === 3. DESTEK (TICKET) SİSTEMİ ===
+# === DESTEK SİSTEMİ ===
 # =====================================================================
 
 class TicketIciAksiyonView(View):
@@ -311,9 +311,61 @@ class PanelAnaView(View):
         self.add_item(PanelKategoriDropdown())
 
 # =====================================================================
-# === 4. TÜRKÇE KARAKTERSİZ GLOBAL SLASH KOMUTLARI ===
+# === GLOBAL SLASH KOMUTLARI ===
 # =====================================================================
 
+# --- YENİ: Anket Komutu ---
+@bot.tree.command(name="anket", description="Sunucuda oylamalı anket başlatır (Yönetici).")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_anket(interaction: discord.Interaction, soru: str, secenek1: str, secenek2: str):
+    await interaction.response.defer(ephemeral=True)
+    
+    embed = discord.Embed(title="📊 Yeni Anket / Oylama", description=f"**{soru}**", color=discord.Color.purple())
+    embed.add_field(name="🟢 Seçenek 1", value=secenek1, inline=False)
+    embed.add_field(name="🔵 Seçenek 2", value=secenek2, inline=False)
+    embed.set_footer(text=f"Düzenleyen: {interaction.user.name}")
+    if 'BANNER_URL' in globals() and BANNER_URL.startswith("http"): embed.set_image(url=BANNER_URL)
+    
+    anket_mesaj = await interaction.channel.send(embed=embed)
+    await anket_mesaj.add_reaction("🟢")
+    await anket_mesaj.add_reaction("🔵")
+    
+    await interaction.followup.send("✅ Anket başarıyla oluşturuldu!", ephemeral=True)
+
+# --- GERİ GETİRİLENLER: Eski Klasik Komutlar ---
+@bot.tree.command(name="selam", description="Botla selamlaşırsınız.")
+async def slash_selam(interaction: discord.Interaction):
+    await interaction.response.send_message(f"Aleyküm Selam {interaction.user.mention}, hoş geldin! projemize destek verdiğin için teşekkürler.")
+
+@bot.tree.command(name="ping", description="Botun anlık gecikme süresini ölçer.")
+async def slash_ping(interaction: discord.Interaction):
+    await interaction.response.send_message(f"🏓 Pong! Gecikme Süresi: **{round(bot.latency * 1000)}ms**")
+
+@bot.tree.command(name="mesaj", description="Belirtilen kullanıcıya bot aracılığıyla DM gönderir (Yönetici).")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_mesaj(interaction: discord.Interaction, kullanici: discord.User, mesaj: str):
+    await interaction.response.defer(ephemeral=True)
+    try:
+        await kullanici.send(mesaj)
+        await interaction.followup.send(f"✅ {kullanici.name} adlı kullanıcıya mesaj başarıyla gönderildi.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.followup.send("❌ Kullanıcının DM kutusu kapalı olduğu için mesaj gönderilemedi.", ephemeral=True)
+
+@bot.tree.command(name="yardim", description="Botun tüm komutlarını ve kullanım amaçlarını listeler.")
+async def slash_yardim(interaction: discord.Interaction):
+    embed = discord.Embed(title="🛠️ Bot Komut Listesi & Yardım Menüsü", color=discord.Color.blue())
+    embed.add_field(name="/selam", value="Botla selamlaşmanızı sağlar.", inline=True)
+    embed.add_field(name="/ping", value="Botun gecikmesini gösterir.", inline=True)
+    embed.add_field(name="/anket", value="[Yönetici] 2 seçenekli anket açar.", inline=True)
+    embed.add_field(name="/cekilis", value="[Yönetici] Canlı butonlu çekiliş başlatır.", inline=True)
+    embed.add_field(name="/rol-basvuru", value="[Yönetici] Rol başvuru panelini gönderir.", inline=True)
+    embed.add_field(name="/destek-panel", value="[Yönetici] Destek (Ticket) panelini kurar.", inline=True)
+    embed.add_field(name="/sil", value="[Yönetici] Belirtilen miktarda mesajı temizler.", inline=True)
+    embed.add_field(name="/mesaj", value="[Yönetici] Bir kullanıcıya bot üzerinden DM atar.", inline=True)
+    if 'BANNER_URL' in globals() and BANNER_URL.startswith("http"): embed.set_image(url=BANNER_URL)
+    await interaction.response.send_message(embed=embed)
+
+# --- HALİHAZIRDA OLAN YÖNETİM KOMUTLARI ---
 @bot.tree.command(name="cekilis", description="Canlı butonlu bir çekiliş başlatır (Yönetici).")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_cekilis(interaction: discord.Interaction, süre: str, ödül: str, kazananlar: int = 1):
@@ -328,7 +380,6 @@ async def slash_cekilis(interaction: discord.Interaction, süre: str, ödül: st
     embed.add_field(name="• Süre", value=f"<t:{int(bitis_zamani.timestamp())}:R>", inline=False)
     embed.add_field(name="• Kazanan Sayısı", value=str(kazananlar), inline=False)
     embed.add_field(name="• Katılımcı Sayısı", value="0", inline=False)
-    
     if 'BANNER_URL' in globals() and BANNER_URL.startswith("http"): embed.set_image(url=BANNER_URL)
 
     view = CekilisKatilView(odul=ödül, bitis_zamani=bitis_zamani, kazanan_sayisi=kazananlar)
@@ -381,7 +432,7 @@ async def slash_sil(interaction: discord.Interaction, miktar: int):
     await interaction.followup.send("🗑️ Temizlendi.", ephemeral=True)
 
 # =====================================================================
-# === 5. SİSTEMSEL EVENTLER (GELEN - GİDEN) ===
+# === SİSTEMSEL EVENTLER ===
 # =====================================================================
 
 @bot.event
@@ -406,13 +457,13 @@ async def on_ready():
     bot.add_view(RolBasvuruView())
     bot.add_view(TicketIciAksiyonView())
     
-    # KESİN ÇÖZÜM: Komutları küresel (global) olarak senkronize ediyoruz.
     try:
         await bot.tree.sync()
-        print("Tüm global slash komutları Discord API'sine başarıyla işlendi!")
+        print("Tüm global slash komutları (Eskiler + Çekiliş + Anket) başarıyla yüklendi!")
     except Exception as e: 
         print(f"Senkronizasyon Hatası: {e}")
 
 TOKEN = os.environ.get('DISCORD_TOKEN', '')
 if TOKEN: 
     bot.run(TOKEN, reconnect=True)
+    
