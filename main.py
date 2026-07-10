@@ -1,3 +1,4 @@
+
 import discord
 from discord.ext import commands, tasks
 from discord.ui import View, Button, Select, Modal, TextInput
@@ -60,21 +61,22 @@ TICKET_KATEGORILERI = {
 }
 
 # =====================================================================
-# === HİZMET PAKETLERİ VE FİYAT LİSTESİ SİSTEMİ ===
+# === HİZMET PAKETLERİ VE FİYAT LİSTESİ SİSTEMİ (GÜNCELLENDİ) ===
 # =====================================================================
 
 class PaketDropdown(Select):
     def __init__(self):
+        # "Tekil Duyuru" ifadeleri tamamen kaldırıldı, doğrudan görsele göre ayarlandı.
         options = [
-            discord.SelectOption(label="Tekil Ping Hizmetleri", value="ping_hizmet", emoji="📢", description="Anlık everyone ve here ping fiyatları."),
+            discord.SelectOption(label="Ping Hizmetleri", value="ping_hizmet", emoji="📢", description="Anlık everyone ve here etiket fiyatları."),
             discord.SelectOption(label="Özel Odalar & Kategori", value="oda_hizmet", emoji="🛠️", description="Özel kategori alanı ve karşılama sistemi.")
         ]
         super().__init__(placeholder="🔻 Paket Seçin:", min_values=1, max_values=1, options=options, custom_id="paket_ana_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
-        # Seçim yapıldığında duyuru kelimesi içermeyen saf ping başlıkları tetiklenir
+        # Kullanıcının seçimine göre sadece ona özel (ephemeral) temiz çıktılar verilir
         if self.values[0] == "ping_hizmet":
-            embed = discord.Embed(title="📢 TEKİL PING HİZMETLERİ", color=discord.Color.from_rgb(230, 126, 34), timestamp=datetime.now())
+            embed = discord.Embed(title="📢 PING HİZMETLERİ", color=discord.Color.from_rgb(230, 126, 34), timestamp=datetime.now())
             embed.description = "🔵 **Anlık `@everyone` Ping:** `80 TL`\n🟡 **Anlık `@here` Ping:** `50 TL`"
             await interaction.response.send_message(embed=embed, ephemeral=True)
             
@@ -142,7 +144,7 @@ class RolKararView(View):
 
     @discord.ui.button(label="Onayla", style=discord.ButtonStyle.success, emoji="✅", custom_id="basvuru_onayla_btn")
     async def onayla(self, interaction: discord.Interaction, button: discord.Button):
-        support_rol = interaction.user.guild_permissions.administrator or interaction.guild.get_role(SUPPORT_ROL_ID)
+        support_rol = interaction.guild.get_role(SUPPORT_ROL_ID)
         if not (interaction.user.guild_permissions.administrator or (support_rol and support_rol in interaction.user.roles)):
             await interaction.response.send_message("❌ Bu başvuruyu onaylamak için yetkiniz yok!", ephemeral=True)
             return
@@ -155,7 +157,7 @@ class RolKararView(View):
         if self.basvuru_tipi == "Unvan":
             hedef_rol_id = ROL_IDLERI.get(self.rol_adi)
             hedef_rol = guild.get_role(hedef_rol_id) if hedef_rol_id else None
-            if member and毀 hedef_rol:
+            if member and hedef_rol:
                 try: 
                     await member.add_roles(hedef_rol)
                     rol_durumu = "Unvan rolü otomatik tanımlandı."
