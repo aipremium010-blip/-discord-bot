@@ -111,15 +111,15 @@ class TicketKapatView(View):
     def __init__(self):
         super().__init__(timeout=None)
     
-    @discord.ui.button(label="🔒 Talebi Kapat", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Talebi Kapat", style=discord.ButtonStyle.danger)
     async def kapat(self, interaction, button):
         support_rol = interaction.guild.get_role(SUPPORT_ROL_ID)
         if interaction.user.guild_permissions.administrator or (support_rol and support_rol in interaction.user.roles):
-            await interaction.response.send_message("🔒 Ticket 5 saniye sonra kapatilacak...")
+            await interaction.response.send_message("Ticket 5 saniye sonra kapatilacak...")
             await asyncio.sleep(5)
             await interaction.channel.delete()
         else:
-            await interaction.response.send_message("❌ Bu islem icin yetkiniz yok!", ephemeral=True)
+            await interaction.response.send_message("Bu islem icin yetkiniz yok!", ephemeral=True)
 
 class TicketKonuView(View):
     def __init__(self, kategori_key):
@@ -161,11 +161,11 @@ class TicketKonuView(View):
             description=f"**Konu:** {self.kategori_adi}\\n**Kisaca Konunuz:** (Kullanici aciklamasi bekleniyor)",
             color=discord.Color.green()
         )
-        embed.add_field(name="👤 Oyuncu Adi", value=interaction.user.display_name, inline=True)
-        embed.add_field(name="📅 Hesap Acilis Tarihi", value=hesap_acilis, inline=True)
-        embed.add_field(name="🕐 Ticket Acilis Zamani", value=ticket_acilis, inline=True)
-        embed.add_field(name="🆔 Kullanici ID", value=interaction.user.id, inline=True)
-        embed.add_field(name="📋 Kategori", value=f"{self.emoji} {self.kategori_adi}", inline=True)
+        embed.add_field(name="Oyuncu Adi", value=interaction.user.display_name, inline=True)
+        embed.add_field(name="Hesap Acilis Tarihi", value=hesap_acilis, inline=True)
+        embed.add_field(name="Ticket Acilis Zamani", value=ticket_acilis, inline=True)
+        embed.add_field(name="Kullanici ID", value=interaction.user.id, inline=True)
+        embed.add_field(name="Kategori", value=f"{self.emoji} {self.kategori_adi}", inline=True)
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
         embed.set_footer(text=f"Ticket ID: {interaction.user.id} | {ticket_acilis}")
         
@@ -175,7 +175,7 @@ class TicketKonuView(View):
             await channel.send(embed=embed)
         
         await channel.send(view=TicketKapatView())
-        await interaction.followup.send(f"✅ Destek talebiniz acildi: {channel.mention}", ephemeral=True)
+        await interaction.followup.send(f"Destek talebiniz acildi: {channel.mention}", ephemeral=True)
 
 class DestekPanelView(View):
     def __init__(self):
@@ -184,11 +184,11 @@ class DestekPanelView(View):
     @discord.ui.select(
         placeholder="Bir kategori secerek destek talebi acabilirsiniz...",
         options=[
-            discord.SelectOption(label="📃 Partnerlik", value="partnerlik", description="Partnerlik basvurusu"),
-            discord.SelectOption(label="🚨 Sikayet", value="sikayet", description="Bir sikayet bildirin"),
-            discord.SelectOption(label="📙 Yetkili Basvurusu", value="yetkili-basvuru", description="Yetkili ekibine katilin"),
-            discord.SelectOption(label="💵 Reklam", value="reklam", description="Reklam basvurusu"),
-            discord.SelectOption(label="📜 Genel", value="genel", description="Genel destek talebi")
+            discord.SelectOption(label="Partnerlik", value="partnerlik", description="Partnerlik basvurusu"),
+            discord.SelectOption(label="Sikayet", value="sikayet", description="Bir sikayet bildirin"),
+            discord.SelectOption(label="Yetkili Basvurusu", value="yetkili-basvuru", description="Yetkili ekibine katilin"),
+            discord.SelectOption(label="Reklam", value="reklam", description="Reklam basvurusu"),
+            discord.SelectOption(label="Genel", value="genel", description="Genel destek talebi")
         ]
     )
     async def kategori_sec(self, interaction, select):
@@ -214,7 +214,7 @@ class PaketDetayView(View):
     
     def paketler_embed(self):
         embed = discord.Embed(
-            title="💎 Reklam Paketleri",
+            title="Reklam Paketleri",
             description="Asagidaki paketlerden birini secerek detaylari goruntuleyebilirsiniz.",
             color=discord.Color.gold()
         )
@@ -233,10 +233,10 @@ class PaketlerView(View):
     @discord.ui.select(
         placeholder="Bir paket seciniz...",
         options=[
-            discord.SelectOption(label="🔩 Demir Paket", value="demir", description="Temel ozellikler - 50TL"),
-            discord.SelectOption(label="🥇 Altin Paket", value="altin", description="Gelismis ozellikler - 100TL"),
-            discord.SelectOption(label="💎 Elmas Paket", value="elmas", description="Premium ozellikler - 200TL"),
-            discord.SelectOption(label="⚔️ Netherite Paket", value="netherite", description="VIP ozellikler - 500TL")
+            discord.SelectOption(label="Demir Paket", value="demir", description="Temel ozellikler - 50TL"),
+            discord.SelectOption(label="Altin Paket", value="altin", description="Gelismis ozellikler - 100TL"),
+            discord.SelectOption(label="Elmas Paket", value="elmas", description="Premium ozellikler - 200TL"),
+            discord.SelectOption(label="Netherite Paket", value="netherite", description="VIP ozellikler - 500TL")
         ]
     )
     async def paket_sec(self, interaction, select):
@@ -249,8 +249,8 @@ class PaketlerView(View):
             color=discord.Color(int(detay['renk'].replace('#', ''), 16))
         )
         
-        ozellikler_text = "\\n".join([f"✅ {oz}" for oz in detay['ozellikler']])
-        embed.add_field(name="📋 Ozellikler", value=ozellikler_text, inline=False)
+        ozellikler_text = "\\n".join([f"- {oz}" for oz in detay['ozellikler']])
+        embed.add_field(name="Ozellikler", value=ozellikler_text, inline=False)
         embed.set_footer(text="Satin almak icin yetkililere ulasin.")
         
         await interaction.response.edit_message(embed=embed, view=PaketDetayView(paket_key))
@@ -259,23 +259,23 @@ class RolBasvuruView(View):
     def __init__(self):
         super().__init__(timeout=None)
     
-    @discord.ui.button(label="👑 Sunucu Sahibi", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Sunucu Sahibi", style=discord.ButtonStyle.primary)
     async def sunucu_sahibi(self, interaction, button):
         await self.basvuru_yap(interaction, "Sunucu Sahibi")
     
-    @discord.ui.button(label="⚔️ Klan Sahibi", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Klan Sahibi", style=discord.ButtonStyle.primary)
     async def klan_sahibi(self, interaction, button):
         await self.basvuru_yap(interaction, "Klan Sahibi")
     
-    @discord.ui.button(label="🎥 Yayinci", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Yayinci", style=discord.ButtonStyle.primary)
     async def yayinci(self, interaction, button):
         await self.basvuru_yap(interaction, "Yayinci")
     
-    @discord.ui.button(label="🖥️ Hosting Sahibi", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Hosting Sahibi", style=discord.ButtonStyle.primary)
     async def hosting_sahibi(self, interaction, button):
         await self.basvuru_yap(interaction, "Hosting Sahibi")
     
-    @discord.ui.button(label="📝 Icerik Ureticisi", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Icerik Ureticisi", style=discord.ButtonStyle.primary)
     async def icerik_ureticisi(self, interaction, button):
         await self.basvuru_yap(interaction, "Icerik Ureticisi")
     
@@ -292,16 +292,16 @@ class RolBasvuruView(View):
         
         basvuru_kanal = interaction.guild.get_channel(BASVURU_KANAL_ID)
         if basvuru_kanal:
-            embed = discord.Embed(title=f"📝 {rol_adi} Basvurusu", color=discord.Color.gold())
+            embed = discord.Embed(title=f"{rol_adi} Basvurusu", color=discord.Color.gold())
             embed.add_field(name="Basvuran", value=interaction.user.mention, inline=False)
             embed.add_field(name="Rol", value=rol_adi, inline=False)
-            embed.add_field(name="Durum", value="⏳ Beklemede", inline=False)
+            embed.add_field(name="Durum", value="Beklemede", inline=False)
             embed.set_footer(text=f"Basvuru Tarihi: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
             await basvuru_kanal.send(embed=embed)
         
         try:
             dm_embed = discord.Embed(
-                title=f"📝 {rol_adi} Basvurunuz Alindi",
+                title=f"{rol_adi} Basvurunuz Alindi",
                 description="Basvurunuz incelendikten sonra size donus yapilacaktir.",
                 color=discord.Color.green()
             )
@@ -313,16 +313,16 @@ class RolBasvuruView(View):
 
 @bot.tree.command(name="selam", description="Selam verir")
 async def slash_selam(interaction):
-    await interaction.response.send_message(f"Selam {interaction.user.mention}! 👋")
+    await interaction.response.send_message(f"Selam {interaction.user.mention}!")
 
 @bot.tree.command(name="ping", description="Bot gecikmesini gosterir")
 async def slash_ping(interaction):
-    await interaction.response.send_message(f"Pong! 🏓 Gecikme: {round(bot.latency * 1000)}ms")
+    await interaction.response.send_message(f"Pong! Gecikme: {round(bot.latency * 1000)}ms")
 
 @bot.tree.command(name="paketler", description="Reklam paketlerini gosterir")
 async def slash_paketler(interaction):
     embed = discord.Embed(
-        title="💎 Reklam Paketleri",
+        title="Reklam Paketleri",
         description="Asagidaki paketlerden birini secerek detaylari goruntuleyebilirsiniz.",
         color=discord.Color.gold()
     )
@@ -336,7 +336,7 @@ async def slash_paketler(interaction):
 
 @bot.tree.command(name="yardim", description="Tum komutlari gosterir")
 async def slash_yardim(interaction):
-    await interaction.response.send_message("""**📋 Komutlar:**
+    await interaction.response.send_message("""**Komutlar:**
 `/selam` - Selam verir
 `/ping` - Bot gecikmesini gosterir
 `/yardim` - Bu mesaji gosterir
@@ -347,7 +347,7 @@ async def slash_yardim(interaction):
 `/unlock` - Kanal kilidini acar
 `/sil` - Mesaj siler
 
-**👑 Yonetici Komutlari:**
+**Yonetici Komutlari:**
 `/mesaj` - Embed mesaj gonderir
 `/rol-basvuru` - Rol basvuru paneli
 `/destek-panel` - Destek paneli
@@ -358,9 +358,9 @@ async def slash_yardim(interaction):
 async def slash_ilan_ver(interaction, urun: str, fiyat: str, aciklama: str):
     pazar_channel = interaction.guild.get_channel(PAZAR_KANAL_ID)
     if not pazar_channel:
-        await interaction.response.send_message("❌ Pazar alani kanali bulunamadi!", ephemeral=True)
+        await interaction.response.send_message("Pazar alani kanali bulunamadi!", ephemeral=True)
         return
-    embed = discord.Embed(title="🛒 Yeni Ilan", color=discord.Color.orange())
+    embed = discord.Embed(title="Yeni Ilan", color=discord.Color.orange())
     embed.add_field(name="Ilan Sahibi", value=interaction.user.mention, inline=False)
     embed.add_field(name="Urun", value=urun, inline=True)
     embed.add_field(name="Fiyat", value=fiyat, inline=True)
@@ -371,7 +371,7 @@ async def slash_ilan_ver(interaction, urun: str, fiyat: str, aciklama: str):
     await msg.add_reaction("✅")
     await msg.add_reaction("❌")
     
-    await interaction.response.send_message("✅ Ilaniniz pazar alanina gonderildi!", ephemeral=True)
+    await interaction.response.send_message("Ilaniniz pazar alanina gonderildi!", ephemeral=True)
 
 @bot.tree.command(name="destek", description="Destek talebi olusturur")
 async def slash_destek(interaction):
@@ -382,39 +382,39 @@ async def slash_destek(interaction):
 async def slash_lock(interaction, kanal: discord.TextChannel = None):
     channel = kanal or interaction.channel
     await channel.set_permissions(interaction.guild.default_role, send_messages=False)
-    await interaction.response.send_message(f"🔒 {channel.mention} kilitlendi!", ephemeral=True)
+    await interaction.response.send_message(f"{channel.mention} kilitlendi!", ephemeral=True)
 
 @slash_lock.error
 async def slash_lock_error(interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("❌ Yetkiniz yok!", ephemeral=True)
+        await interaction.response.send_message("Yetkiniz yok!", ephemeral=True)
 
 @bot.tree.command(name="unlock", description="Kanal kilidini acar (Yetkili)")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def slash_unlock(interaction, kanal: discord.TextChannel = None):
     channel = kanal or interaction.channel
     await channel.set_permissions(interaction.guild.default_role, send_messages=True)
-    await interaction.response.send_message(f"🔓 {channel.mention} acildi!", ephemeral=True)
+    await interaction.response.send_message(f"{channel.mention} acildi!", ephemeral=True)
 
 @slash_unlock.error
 async def slash_unlock_error(interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("❌ Yetkiniz yok!", ephemeral=True)
+        await interaction.response.send_message("Yetkiniz yok!", ephemeral=True)
 
 @bot.tree.command(name="sil", description="Belirtilen sayida mesaj siler (Yetkili)")
 @app_commands.checks.has_permissions(manage_messages=True)
 @app_commands.describe(miktar="Silinecek mesaj sayisi (1-100)")
 async def slash_sil(interaction, miktar: int):
     if miktar < 1 or miktar > 100:
-        await interaction.response.send_message("❌ 1-100 arasi girin!", ephemeral=True)
+        await interaction.response.send_message("1-100 arasi girin!", ephemeral=True)
         return
     await interaction.channel.purge(limit=miktar)
-    await interaction.response.send_message(f"🗑️ {miktar} mesaj silindi!", ephemeral=True)
+    await interaction.response.send_message(f"{miktar} mesaj silindi!", ephemeral=True)
 
 @slash_sil.error
 async def slash_sil_error(interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("❌ Yetkiniz yok!", ephemeral=True)
+        await interaction.response.send_message("Yetkiniz yok!", ephemeral=True)
 
 @bot.tree.command(name="reklam-fiyat-ayarla", description="Reklam paket fiyatlarini ayarlar (Yetkili)")
 @app_commands.checks.has_permissions(administrator=True)
@@ -422,16 +422,16 @@ async def slash_sil_error(interaction, error):
 async def slash_reklam_fiyat_ayarla(interaction, paket: str, fiyat: int):
     paket = paket.lower()
     if paket not in reklam_fiyatlari:
-        await interaction.response.send_message("❌ Gecersiz paket!", ephemeral=True)
+        await interaction.response.send_message("Gecersiz paket!", ephemeral=True)
         return
     reklam_fiyatlari[paket] = fiyat
     PAKET_DETAYLARI[paket]["fiyat"] = fiyat
-    await interaction.response.send_message(f"✅ {paket.capitalize()} Paket fiyati {fiyat}TL olarak guncellendi!", ephemeral=True)
+    await interaction.response.send_message(f"{paket.capitalize()} Paket fiyati {fiyat}TL olarak guncellendi!", ephemeral=True)
 
 @slash_reklam_fiyat_ayarla.error
 async def slash_reklam_fiyat_ayarla_error(interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("❌ Yetkiniz yok!", ephemeral=True)
+        await interaction.response.send_message("Yetkiniz yok!", ephemeral=True)
 
 @bot.tree.command(name="mesaj", description="Belirtilen kanala embed mesaj gonderir (Yetkili)")
 @app_commands.checks.has_permissions(administrator=True)
@@ -444,18 +444,18 @@ async def slash_mesaj(interaction, kanal: discord.TextChannel, mesaj: str, basli
     embed.set_footer(text=f"Gonderen: {interaction.user.display_name}")
     embed.timestamp = discord.utils.utcnow()
     await kanal.send(embed=embed)
-    await interaction.response.send_message(f"✅ Mesaj {kanal.mention} kanalina gonderildi!", ephemeral=True)
+    await interaction.response.send_message(f"Mesaj {kanal.mention} kanalina gonderildi!", ephemeral=True)
 
 @slash_mesaj.error
 async def slash_mesaj_error(interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("❌ Yetkiniz yok!", ephemeral=True)
+        await interaction.response.send_message("Yetkiniz yok!", ephemeral=True)
 
 @bot.tree.command(name="rol-basvuru", description="Rol basvuru paneli olusturur (Yetkili)")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_rol_basvuru(interaction):
     embed = discord.Embed(
-        title="👑 Unvan Dogrulama Basvurulari",
+        title="Unvan Dogrulama Basvurulari",
         description="Sunucu sahibi, klan lideri, yayinci, hosting firmasi veya icerik ureticisi unvanlarina sahipseniz rollerinizi teslim almak icin asagidaki butona tiklayin.",
         color=discord.Color.purple()
     )
@@ -465,28 +465,23 @@ async def slash_rol_basvuru(interaction):
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_destek_panel(interaction):
     embed = discord.Embed(
-        title="🔔 Destek Menusu",
+        title="Destek Menusu",
         description="Asagidaki menuden destek talebi acabilirsiniz.\\n\\n• Yetkilileri mesgul etmek yasaktir.\\n• Destek taleplerinizi kategorilere gore acin.\\n• Uygun kanal secildikten sonra destek ekibi bilgilendirilecektir.",
         color=discord.Color.blurple()
     )
     await interaction.response.send_message(embed=embed, view=DestekPanelView())
 
-# === EVENT'LER ===
-
+# === KISALTILMIS GELEN/GIDEN ===
 @bot.event
 async def on_member_join(member):
     channel = discord.utils.get(member.guild.text_channels, name="genel-sohbet")
     if channel:
         embed = discord.Embed(
-            title="🎉 Hos Geldin!",
             description=f"{member.mention} aramiza katildi! Hos geldin!",
             color=discord.Color.green()
         )
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(name="👤 Uye", value=member.display_name, inline=True)
-        embed.add_field(name="📅 Hesap Tarihi", value=member.created_at.strftime("%d/%m/%Y"), inline=True)
-        embed.add_field(name="👥 Toplam Uye", value=len(member.guild.members), inline=True)
-        embed.set_footer(text=f"Katilma Zamani: {datetime.now().strftime('%H:%M')}")
+        embed.set_footer(text=f"Toplam: {len(member.guild.members)} uye")
         await channel.send(embed=embed)
 
 @bot.event
@@ -494,15 +489,11 @@ async def on_member_remove(member):
     channel = discord.utils.get(member.guild.text_channels, name="genel-sohbet")
     if channel:
         embed = discord.Embed(
-            title="👋 Gule Gule!",
             description=f"{member.mention} aramizdan ayrildi. Gorusmek uzere!",
             color=discord.Color.red()
         )
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(name="👤 Uye", value=member.display_name, inline=True)
-        embed.add_field(name="📅 Sunucuda Kaldigi Sure", value="N/A", inline=True)
-        embed.add_field(name="👥 Kalan Uye", value=len(member.guild.members), inline=True)
-        embed.set_footer(text=f"Ayrilma Zamani: {datetime.now().strftime('%H:%M')}")
+        embed.set_footer(text=f"Kalan: {len(member.guild.members)} uye")
         await channel.send(embed=embed)
 
 @bot.event
@@ -513,38 +504,29 @@ async def on_message(message):
             await message.add_reaction("❌")
     await bot.process_commands(message)
 
-# === ON_READY - SENKRONIZASYON ===
+# === ON_READY ===
 _synced = False
 
 @bot.event
 async def on_ready():
     global _synced
-    print(f"✅ {bot.user} aktif!")
+    print(f"Bot aktif: {bot.user}")
     
     if not _synced:
         try:
-            # Once global senkronizasyon
-            synced_global = await bot.tree.sync()
-            print(f"🔄 Global: {len(synced_global)} komut senkronize edildi")
-            
-            # Sonra guild-specific senkronizasyon (daha hizli guncellenir)
             for guild in bot.guilds:
                 try:
-                    synced_guild = await bot.tree.sync(guild=guild)
-                    print(f"🔄 {guild.name}: {len(synced_guild)} komut senkronize edildi")
+                    synced = await bot.tree.sync(guild=guild)
+                    print(f"{guild.name}: {len(synced)} komut senkronize edildi")
                 except Exception as e:
-                    print(f"⚠️ {guild.name} senkronizasyon hatasi: {e}")
-            
+                    print(f"{guild.name} hata: {e}")
             _synced = True
-            print("✅ Tum komutlar senkronize edildi!")
+            print("Tum komutlar senkronize edildi!")
         except Exception as e:
-            print(f"❌ Senkronizasyon hatasi: {e}")
-    else:
-        print("ℹ️ Komutlar zaten senkronize edilmisti.")
+            print(f"Senkronizasyon hatasi: {e}")
     
-    # Bot durumunu ayarla
     await bot.change_presence(
-        activity=discord.Activity(type=discord.ActivityType.watching, name="/yardim | Destek"),
+        activity=discord.Activity(type=discord.ActivityType.watching, name="/yardim"),
         status=discord.Status.online
     )
 
