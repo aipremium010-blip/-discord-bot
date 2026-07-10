@@ -5,7 +5,7 @@ from discord import app_commands
 import os
 import asyncio
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask import Flask
 from threading import Thread
 import urllib.request
@@ -33,8 +33,9 @@ LOG_KANAL_ID = 1524879141793435689
 PAZAR_KANAL_ID = 1524866586912227330
 SUPPORT_ROL_ID = 1524866585637031961
 
-# === MTTS GÖRSEL LOGO URL (1024x1024) ===
-# Sağ taraftaki küçük kare (thumbnail) ve alt bannerlar için ortak kullanılacak ana görsel linkin:
+# === MTTS GÖRSEL LOGO URL ===
+# Lütfen buraya MTTS logonun tam discord/resim linkini yapıştır.
+# Eğer link hatalıysa veya boşsa, bot hata vermez ve otomatik olarak sunucu logosunu sağa yerleştirir.
 BANNER_URL = "https://images-ext-1.discordapp.net/external/re_m7v0e0_tA83Yw_4X2A2r3V8M/https/cdn.discordapp.com/attachments/..." 
 
 ROL_IDLERI = {
@@ -111,6 +112,7 @@ class DestekGirisModal(Modal, title="Destek Talebi Formu"):
         tarih_str = suan.strftime("%d %B %Y %H:%M")
         ticket_id = random.randint(1000000000, 9999999999)
 
+        # İç Görünüm Tasarımı (Birebir İstenen Bilet İçi Şablon)
         embed = discord.Embed(color=discord.Color.from_rgb(88, 101, 242))
         embed.set_author(name="📑 Destek Talebi")
         embed.description = "Destek ekibimiz en kısa sürede size yardımcı olacaktır.\n\n" \
@@ -120,7 +122,7 @@ class DestekGirisModal(Modal, title="Destek Talebi Formu"):
                             f"🆔 **Kullanıcı ID**\n{user.id}\n\n" \
                             f"⏱️ **Açılış Zamanı**\n{tarih_str}"
         
-        embed.set_thumbnail(url=user.display_avatar.url) # Bilet içinde açan kişinin profil resmi sağda kalmaya devam eder
+        embed.set_thumbnail(url=user.display_avatar.url)  # Bilet içinde açan kişinin profil resmi sağda kalır
         embed.set_footer(text=f"Ticket ID: {ticket_id} • bugün saat {suan.strftime('%H:%M')}")
 
         if support_rol:
@@ -158,6 +160,9 @@ class PanelAnaView(View):
 @bot.tree.command(name="destek-panel", description="Dış destek panelini MTTS logosuyla oluşturur (Yönetici).")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_destek_panel(interaction: discord.Interaction):
+    # Etkileşimi zaman aşımından korumak için defer kullanıyoruz
+    await interaction.response.defer(ephemeral=True)
+    
     embed = discord.Embed(
         title="📥 Destek Menüsü",
         description="Aşağıdaki menüden destek talebi açabilirsiniz.\n\n"
@@ -168,14 +173,21 @@ async def slash_destek_panel(interaction: discord.Interaction):
         color=discord.Color.from_rgb(88, 101, 242)
     )
     
-    # Kılıç yerine sağ taraftaki küçük kare kutucuğa doğrudan MTTS logosunu çeker:
-    if BANNER_URL:
+    # Sağ taraftaki küçük görsele MTTS logosunu (BANNER_URL) ekleme / güvenlik kontrolü
+    if 'BANNER_URL' in globals() and BANNER_URL.startswith("http") and not BANNER_URL.endswith("..."):
         embed.set_thumbnail(url=BANNER_URL)
+    else:
+        if interaction.guild.icon:
+            embed.set_thumbnail(url=interaction.guild.icon.url)
     
-    await interaction.response.send_message("Panel başarıyla kuruldu.", ephemeral=True)
-    await interaction.channel.send(embed=embed, view=PanelAnaView())
+    try:
+        # Mesajı kanala gönderip işlemi tamamlıyoruz
+        await interaction.channel.send(embed=embed, view=PanelAnaView())
+        await interaction.followup.send("✅ Panel başarıyla bu kanala kuruldu!", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"❌ Panel gönderilirken hata oluştu! Hata: `{e}`", ephemeral=True)
 
-# Standart Diğer Komut Yapıları
+# Sunucuya Hoş Geldiniz / Diğer Standart Komutlar
 @bot.tree.command(name="selam", description="Sunucudakilere selam verir.")
 async def slash_selam(interaction: discord.Interaction):
     await interaction.response.send_message(f"Selam {interaction.user.mention}! Hoş geldin. 👋")
@@ -202,7 +214,8 @@ async def on_member_join(member):
             color=discord.Color.green()
         )
         embed.set_thumbnail(url=member.display_avatar.url)
-        if BANNER_URL: embed.set_image(url=BANNER_URL)
+        if 'BANNER_URL' in globals() and BANNER_URL.startswith("http") and not BANNER_URL.endswith("..."): 
+            embed.set_image(url=BANNER_URL)
         await channel.send(content=f"Hoş geldin {member.mention}!", embed=embed)
 
 @bot.event
@@ -215,7 +228,8 @@ async def on_member_remove(member):
             color=discord.Color.red()
         )
         embed.set_thumbnail(url=member.display_avatar.url)
-        if BANNER_URL: embed.set_image(url=BANNER_URL)
+        if 'BANNER_URL' in globals() and BANNER_URL.startswith("http") and not BANNER_URL.endswith("..."): 
+            embed.set_image(url=BANNER_URL)
         await channel.send(content=f"**{member.name}** sunucudan ayrıldı.", embed=embed)
 
 @tasks.loop(seconds=30)
@@ -229,10 +243,14 @@ async def keep_alive_loop():
 async def on_ready():
     print(f"Bot sorunsuzca başlatıldı: {bot.user}")
     try:
-        for guild in bot.guilds: await bot.tree.sync(guild=guild)
+        for guild in bot.guilds: 
+            await bot.tree.sync(guild=guild)
         print("Tüm sistem senkronize edildi!")
-    except Exception as e: print(e)
-    if not keep_alive_loop.is_running(): keep_alive_loop.start()
+    except Exception as e: 
+        print(e)
+    if not keep_alive_loop.is_running(): 
+        keep_alive_loop.start()
 
 TOKEN = os.environ.get('DISCORD_TOKEN', '')
-if TOKEN: bot.run(TOKEN, reconnect=True)
+if TOKEN: 
+    bot.run(TOKEN, reconnect=True)
