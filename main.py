@@ -1,4 +1,5 @@
-import discord
+
+code = '''import discord
 from discord.ext import commands
 from discord.ui import View, Button, Select
 from discord import app_commands
@@ -109,7 +110,7 @@ PAKET_DETAYLARI = {
 class TicketKapatView(View):
     def __init__(self):
         super().__init__(timeout=None)
-
+    
     @discord.ui.button(label="🔒 Talebi Kapat", style=discord.ButtonStyle.danger)
     async def kapat(self, interaction, button):
         support_rol = interaction.guild.get_role(SUPPORT_ROL_ID)
@@ -125,19 +126,19 @@ class TicketKonuView(View):
         super().__init__(timeout=None)
         self.kategori_key = kategori_key
         self.emoji, self.kategori_adi = TICKET_KATEGORILERI[kategori_key]
-
+    
     @discord.ui.button(label="Ticket Ac", style=discord.ButtonStyle.success)
     async def ticket_ac(self, interaction, button):
         await interaction.response.send_message(
-            f"**{self.emoji} {self.kategori_adi} Ticketi**\n\n"
-            f"Lutfen asagidaki bilgileri **bu kanala** yazin:\n\n"
-            f"1. **Kisaca Konunuz Nedir?**\n"
-            f"2. **Oyuncu Adiniz:**\n"
-            f"3. **Detayli Aciklama:**\n\n"
+            f"**{self.emoji} {self.kategori_adi} Ticketi**\\n\\n"
+            f"Lutfen asagidaki bilgileri **bu kanala** yazin:\\n\\n"
+            f"1. **Kisaca Konunuz Nedir?**\\n"
+            f"2. **Oyuncu Adiniz:**\\n"
+            f"3. **Detayli Aciklama:**\\n\\n"
             f"Yetkili ekibi en kisa surede size donus yapacaktir.",
             ephemeral=True
         )
-
+        
         support_rol = interaction.guild.get_role(SUPPORT_ROL_ID)
         overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -146,18 +147,18 @@ class TicketKonuView(View):
         }
         if support_rol:
             overwrites[support_rol] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
-
+        
         channel = await interaction.guild.create_text_channel(
             name=f"ticket-{interaction.user.name}",
             overwrites=overwrites
         )
-
+        
         hesap_acilis = interaction.user.created_at.strftime("%d/%m/%Y")
         ticket_acilis = datetime.now().strftime("%d/%m/%Y %H:%M")
-
+        
         embed = discord.Embed(
             title=f"{self.emoji} ACIKIS SEBEBI: {self.kategori_adi.upper()}",
-            description=f"**Konu:** {self.kategori_adi}\n**Kisaca Konunuz:** (Kullanici aciklamasi bekleniyor)",
+            description=f"**Konu:** {self.kategori_adi}\\n**Kisaca Konunuz:** (Kullanici aciklamasi bekleniyor)",
             color=discord.Color.green()
         )
         embed.add_field(name="👤 Oyuncu Adi", value=interaction.user.display_name, inline=True)
@@ -167,19 +168,19 @@ class TicketKonuView(View):
         embed.add_field(name="📋 Kategori", value=f"{self.emoji} {self.kategori_adi}", inline=True)
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
         embed.set_footer(text=f"Ticket ID: {interaction.user.id} | {ticket_acilis}")
-
+        
         if support_rol:
             await channel.send(f"{support_rol.mention} Yeni destek talebi!", embed=embed)
         else:
             await channel.send(embed=embed)
-
+        
         await channel.send(view=TicketKapatView())
         await interaction.followup.send(f"✅ Destek talebiniz acildi: {channel.mention}", ephemeral=True)
 
 class DestekPanelView(View):
     def __init__(self):
         super().__init__(timeout=None)
-
+    
     @discord.ui.select(
         placeholder="Bir kategori secerek destek talebi acabilirsiniz...",
         options=[
@@ -193,7 +194,7 @@ class DestekPanelView(View):
     async def kategori_sec(self, interaction, select):
         kategori_key = select.values[0]
         emoji, kategori_adi = TICKET_KATEGORILERI[kategori_key]
-
+        
         embed = discord.Embed(
             title=f"{emoji} {kategori_adi} Destegi",
             description=f"**{kategori_adi}** kategorisinde destek talebi acmak icin asagidaki butona tiklayin.",
@@ -206,11 +207,11 @@ class PaketDetayView(View):
         super().__init__(timeout=None)
         self.paket_key = paket_key
         self.detay = PAKET_DETAYLARI[paket_key]
-
+    
     @discord.ui.button(label="Geri Don", style=discord.ButtonStyle.secondary)
     async def geri_don(self, interaction, button):
         await interaction.response.edit_message(embed=self.paketler_embed(), view=PaketlerView())
-
+    
     def paketler_embed(self):
         embed = discord.Embed(
             title="💎 Reklam Paketleri",
@@ -228,7 +229,7 @@ class PaketDetayView(View):
 class PaketlerView(View):
     def __init__(self):
         super().__init__(timeout=None)
-
+    
     @discord.ui.select(
         placeholder="Bir paket seciniz...",
         options=[
@@ -241,54 +242,54 @@ class PaketlerView(View):
     async def paket_sec(self, interaction, select):
         paket_key = select.values[0]
         detay = PAKET_DETAYLARI[paket_key]
-
+        
         embed = discord.Embed(
             title=f"{detay['emoji']} {detay['isim']}",
             description=f"**Fiyat:** {detay['fiyat']}TL",
             color=discord.Color(int(detay['renk'].replace('#', ''), 16))
         )
-
-        ozellikler_text = "\n".join([f"✅ {oz}" for oz in detay['ozellikler']])
+        
+        ozellikler_text = "\\n".join([f"✅ {oz}" for oz in detay['ozellikler']])
         embed.add_field(name="📋 Ozellikler", value=ozellikler_text, inline=False)
         embed.set_footer(text="Satin almak icin yetkililere ulasin.")
-
+        
         await interaction.response.edit_message(embed=embed, view=PaketDetayView(paket_key))
 
 class RolBasvuruView(View):
     def __init__(self):
         super().__init__(timeout=None)
-
+    
     @discord.ui.button(label="👑 Sunucu Sahibi", style=discord.ButtonStyle.primary)
     async def sunucu_sahibi(self, interaction, button):
         await self.basvuru_yap(interaction, "Sunucu Sahibi")
-
+    
     @discord.ui.button(label="⚔️ Klan Sahibi", style=discord.ButtonStyle.primary)
     async def klan_sahibi(self, interaction, button):
         await self.basvuru_yap(interaction, "Klan Sahibi")
-
+    
     @discord.ui.button(label="🎥 Yayinci", style=discord.ButtonStyle.primary)
     async def yayinci(self, interaction, button):
         await self.basvuru_yap(interaction, "Yayinci")
-
+    
     @discord.ui.button(label="🖥️ Hosting Sahibi", style=discord.ButtonStyle.primary)
     async def hosting_sahibi(self, interaction, button):
         await self.basvuru_yap(interaction, "Hosting Sahibi")
-
+    
     @discord.ui.button(label="📝 Icerik Ureticisi", style=discord.ButtonStyle.primary)
     async def icerik_ureticisi(self, interaction, button):
         await self.basvuru_yap(interaction, "Icerik Ureticisi")
-
+    
     async def basvuru_yap(self, interaction, rol_adi):
         await interaction.response.send_message(
-            f"**{rol_adi} Basvuru Formu**\n\n"
-            f"Basvurunuzu tamamlamak icin lutfen su bilgileri **bu kanala** yazin:\n"
-            f"1. **Projenizin/Sunucunuzun Adi:**\n"
-            f"2. **Kanti/Discord/Web Linki:**\n"
-            f"3. **Eklemek Istediginiz Detaylar:**\n\n"
+            f"**{rol_adi} Basvuru Formu**\\n\\n"
+            f"Basvurunuzu tamamlamak icin lutfen su bilgileri **bu kanala** yazin:\\n"
+            f"1. **Projenizin/Sunucunuzun Adi:**\\n"
+            f"2. **Kanti/Discord/Web Linki:**\\n"
+            f"3. **Eklemek Istediginiz Detaylar:**\\n\\n"
             f"Basvurunuz incelendikten sonra size donus yapilacaktir.",
             ephemeral=True
         )
-
+        
         basvuru_kanal = interaction.guild.get_channel(BASVURU_KANAL_ID)
         if basvuru_kanal:
             embed = discord.Embed(title=f"📝 {rol_adi} Basvurusu", color=discord.Color.gold())
@@ -297,7 +298,7 @@ class RolBasvuruView(View):
             embed.add_field(name="Durum", value="⏳ Beklemede", inline=False)
             embed.set_footer(text=f"Basvuru Tarihi: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
             await basvuru_kanal.send(embed=embed)
-
+        
         try:
             dm_embed = discord.Embed(
                 title=f"📝 {rol_adi} Basvurunuz Alindi",
@@ -365,11 +366,11 @@ async def slash_ilan_ver(interaction, urun: str, fiyat: str, aciklama: str):
     embed.add_field(name="Fiyat", value=fiyat, inline=True)
     embed.add_field(name="Aciklama", value=aciklama, inline=False)
     embed.set_footer(text=f"Ilan Tarihi: {datetime.now().strftime('%d/%m/%Y')}")
-
+    
     msg = await pazar_channel.send(embed=embed)
     await msg.add_reaction("✅")
     await msg.add_reaction("❌")
-
+    
     await interaction.response.send_message("✅ Ilaniniz pazar alanina gonderildi!", ephemeral=True)
 
 @bot.tree.command(name="destek", description="Destek talebi olusturur")
@@ -465,7 +466,7 @@ async def slash_rol_basvuru(interaction):
 async def slash_destek_panel(interaction):
     embed = discord.Embed(
         title="🔔 Destek Menusu",
-        description="Asagidaki menuden destek talebi acabilirsiniz.\n\n• Yetkilileri mesgul etmek yasaktir.\n• Destek taleplerinizi kategorilere gore acin.\n• Uygun kanal secildikten sonra destek ekibi bilgilendirilecektir.",
+        description="Asagidaki menuden destek talebi acabilirsiniz.\\n\\n• Yetkilileri mesgul etmek yasaktir.\\n• Destek taleplerinizi kategorilere gore acin.\\n• Uygun kanal secildikten sonra destek ekibi bilgilendirilecektir.",
         color=discord.Color.blurple()
     )
     await interaction.response.send_message(embed=embed, view=DestekPanelView())
@@ -512,15 +513,48 @@ async def on_message(message):
             await message.add_reaction("❌")
     await bot.process_commands(message)
 
+# === ON_READY - SENKRONIZASYON ===
+_synced = False
+
 @bot.event
 async def on_ready():
+    global _synced
     print(f"✅ {bot.user} aktif!")
-    try:
-        synced = await bot.tree.sync()
-        print(f"🔄 {len(synced)} slash komutu senkronize edildi!")
-    except Exception as e:
-        print(f"❌ Hata: {e}")
+    
+    if not _synced:
+        try:
+            # Once global senkronizasyon
+            synced_global = await bot.tree.sync()
+            print(f"🔄 Global: {len(synced_global)} komut senkronize edildi")
+            
+            # Sonra guild-specific senkronizasyon (daha hizli guncellenir)
+            for guild in bot.guilds:
+                try:
+                    synced_guild = await bot.tree.sync(guild=guild)
+                    print(f"🔄 {guild.name}: {len(synced_guild)} komut senkronize edildi")
+                except Exception as e:
+                    print(f"⚠️ {guild.name} senkronizasyon hatasi: {e}")
+            
+            _synced = True
+            print("✅ Tum komutlar senkronize edildi!")
+        except Exception as e:
+            print(f"❌ Senkronizasyon hatasi: {e}")
+    else:
+        print("ℹ️ Komutlar zaten senkronize edilmisti.")
+    
+    # Bot durumunu ayarla
+    await bot.change_presence(
+        activity=discord.Activity(type=discord.ActivityType.watching, name="/yardim | Destek"),
+        status=discord.Status.online
+    )
 
 # === BASLAT ===
 print("Bot baslatiliyor...")
 bot.run(os.environ['DISCORD_TOKEN'])
+'''
+
+with open('/mnt/agents/output/main.py', 'w', encoding='utf-8') as f:
+    f.write(code)
+
+print(f"Dosya yazildi: /mnt/agents/output/main.py")
+print(f"Uzunluk: {len(code)} karakter")
