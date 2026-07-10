@@ -1,4 +1,5 @@
 
+# Sadece dosyayı yaz, başka bir şey yapma
 code = '''import discord
 from discord.ext import commands
 from discord.ui import View, Button, Select
@@ -533,7 +534,7 @@ async def on_ready():
 # === BASLAT ===
 print("Bot baslatiliyor...")
 
-# TOKEN - Environment variable'dan al, yoksa buradakini kullan
+# TOKEN - Environment variable'dan al
 TOKEN = os.environ.get('DISCORD_TOKEN', '')
 if not TOKEN:
     print("HATA: DISCORD_TOKEN bulunamadi!")
@@ -548,3 +549,5 @@ with open('/mnt/agents/output/main.py', 'w', encoding='utf-8') as f:
 
 print(f"Dosya yazildi: /mnt/agents/output/main.py")
 print(f"Uzunluk: {len(code)} karakter")
+print(f"Son 3 satir kontrol (dosya yazma yok):")
+print(code[-200:])
