@@ -9,15 +9,24 @@ import re
 from datetime import datetime, timedelta
 from flask import Flask
 from threading import Thread
-import urllib.request
 
-# === WEB SERVER (7/24 Aktif Kalma Altyapısı) ===
+# === WEB SERVER (Render 7/24 Aktif Kalma Altyapısı) ===
 app = Flask('')
+
 @app.route('/')
-def home(): return f"Bot aktif! {datetime.now().strftime('%H:%M:%S')}"
+def home(): 
+    return f"Bot aktif! Son kontrol: {datetime.now().strftime('%H:%M:%S')}"
+
 @app.route('/ping')
-def ping(): return "pong"
-def run_web(): app.run(host='0.0.0.0', port=8080)
+def ping(): 
+    return "pong"
+
+def run_web():
+    # Render dinamik port kullandığı için PORT çevre değişkenini okuyoruz
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# Web sunucusunu ana koda zarar vermeyecek şekilde arka planda başlatıyoruz
 Thread(target=run_web, daemon=True).start()
 
 # === BOT AYARLARI ===
@@ -66,7 +75,7 @@ class CekilisKatilView(View):
 
     @discord.ui.button(label="", style=discord.ButtonStyle.primary, emoji="🎉", custom_id="cekilis_katil_btn")
     async def katil(self, interaction: discord.Interaction, button: discord.Button):
-        # Uygulama yanıt vermedi hatasını çözmek için hemen defer atıyoruz
+        # Zaman aşımı hatasını önlemek için ilk saniyede defer atıyoruz
         await interaction.response.defer(ephemeral=True)
         
         user_id = interaction.user.id
@@ -96,7 +105,7 @@ def parse_duration(duration_str: str) -> int:
     return None
 
 # =====================================================================
-# === 2. SARI ŞERİTLİ Gelişmiş rol BAŞVURU SİSTEMİ ===
+# === 2. Gelişmiş ROL BAŞVURU SİSTEMİ ===
 # =====================================================================
 
 class RolKararView(View):
@@ -306,7 +315,7 @@ class PanelAnaView(View):
         self.add_item(PanelKategoriDropdown())
 
 # =====================================================================
-# === 4. HATASIZ TÜRKÇE KARAKTERSİZ SLASH KOMUTLARI ===
+# === 4. TÜRKÇE KARAKTERSİZ SLASH KOMUTLARI ===
 # =====================================================================
 
 @bot.tree.command(name="cekilis", description="Canlı butonlu bir çekiliş başlatır (Yönetici).")
@@ -350,4 +359,63 @@ async def slash_cekilis(interaction: discord.Interaction, süre: str, ödül: st
         await taze_mesaj.edit(embed=son_embed, view=None)
         await interaction.channel.send(f"🎉 Tebrikler {kazanan_mentionlar}! **{ödül}** kazandınız!")
 
-@bot.tree.command(name
+@bot.tree.command(name="rol-basvuru", description="Unvan doğrulama başvuru panelini gönderir (Yönetici).")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_rol_basvuru(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+    embed = discord.Embed(title="Unvan Doğrulama Başvuruları", description="Gerekli unvan rollerini talep etmek için aşağıdaki butonları kullanın.", color=discord.Color.from_rgb(88, 101, 242))
+    if 'BANNER_URL' in globals() and BANNER_URL.startswith("http"): embed.set_image(url=BANNER_URL)
+    await interaction.channel.send(embed=embed, view=RolBasvuruView())
+    await interaction.followup.send("✅ Rol Başvuru paneli kuruldu!", ephemeral=True)
+
+@bot.tree.command(name="destek-panel", description="Dış destek panelini oluşturur (Yönetici).")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_destek_panel(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+    embed = discord.Embed(title="📥 Destek Menüsü", description="Lütfen destek almak istediğiniz kategoriyi aşağıdaki menüden seçin.", color=discord.Color.from_rgb(88, 101, 242))
+    if 'BANNER_URL' in globals() and BANNER_URL.startswith("http"): embed.set_image(url=BANNER_URL)
+    await interaction.channel.send(embed=embed, view=PanelAnaView())
+    await interaction.followup.send("✅ Destek paneli kuruldu!", ephemeral=True)
+
+@bot.tree.command(name="sil", description="Mesajları temizler (Yönetici).")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_sil(interaction: discord.Interaction, miktar: int):
+    await interaction.response.defer(ephemeral=True)
+    await interaction.channel.purge(limit=miktar)
+    await interaction.followup.send("🗑️ Temizlendi.", ephemeral=True)
+
+# =====================================================================
+# === 5. SİSTEMSEL EVENTLER (GELEN - GİDEN) ===
+# =====================================================================
+
+@bot.event
+async def on_member_join(member):
+    channel = member.guild.get_channel(GELEN_GIDEN_KANAL_ID)
+    if channel:
+        embed = discord.Embed(title="📥 Sunucuya Katıldı!", description=f"{member.mention} aramıza hoş geldin! **{len(member.guild.members)}** kişiyiz.", color=discord.Color.green())
+        embed.set_thumbnail(url=member.display_avatar.url)
+        await channel.send(embed=embed)
+
+@bot.event
+async def on_member_remove(member):
+    channel = member.guild.get_channel(GELEN_GIDEN_KANAL_ID)
+    if channel:
+        embed = discord.Embed(title="📤 Sunucudan Ayrıldı...", description=f"{member.name} ayrıldı. **{len(member.guild.members)}** kişi kaldık.", color=discord.Color.red())
+        await channel.send(embed=embed)
+
+@bot.event
+async def on_ready():
+    print(f"Bot sorunsuzca aktif: {bot.user}")
+    bot.add_view(PanelAnaView())
+    bot.add_view(RolBasvuruView())
+    bot.add_view(TicketIciAksiyonView())
+    try:
+        for guild in bot.guilds: 
+            await bot.tree.sync(guild=guild)
+        print("Slash komutları senkronize edildi.")
+    except Exception as e: 
+        print(e)
+
+TOKEN = os.environ.get('DISCORD_TOKEN', '')
+if TOKEN: 
+    bot.run(TOKEN, reconnect=True)
