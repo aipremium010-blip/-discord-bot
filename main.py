@@ -22,11 +22,9 @@ def ping():
     return "pong"
 
 def run_web():
-    # Render dinamik port kullandığı için PORT çevre değişkenini okuyoruz
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
-# Web sunucusunu ana koda zarar vermeyecek şekilde arka planda başlatıyoruz
 Thread(target=run_web, daemon=True).start()
 
 # === BOT AYARLARI ===
@@ -43,7 +41,7 @@ LOG_KANAL_ID = 1524879141793435689
 PAZAR_KANAL_ID = 1524866586912227330
 SUPPORT_ROL_ID = 1524866585637031961
 
-# === BANNER / LOGO URL (MTTS Tasarımı Entegre Edildi) ===
+# === BANNER / LOGO URL (MTTS Tasarımı) ===
 BANNER_URL = "https://images-ext-1.discordapp.net/external/re_m7v0e0_tA83Yw_4X2A2r3V8M/https/cdn.discordapp.com/attachments/1258071850123530341/1260613271783440465/image_42fd48.png"
 
 ROL_IDLERI = {
@@ -75,9 +73,7 @@ class CekilisKatilView(View):
 
     @discord.ui.button(label="", style=discord.ButtonStyle.primary, emoji="🎉", custom_id="cekilis_katil_btn")
     async def katil(self, interaction: discord.Interaction, button: discord.Button):
-        # Zaman aşımı hatasını önlemek için ilk saniyede defer atıyoruz
         await interaction.response.defer(ephemeral=True)
-        
         user_id = interaction.user.id
         if user_id in self.katilimcilar:
             self.katilimcilar.remove(user_id)
@@ -315,7 +311,7 @@ class PanelAnaView(View):
         self.add_item(PanelKategoriDropdown())
 
 # =====================================================================
-# === 4. TÜRKÇE KARAKTERSİZ SLASH KOMUTLARI ===
+# === 4. TÜRKÇE KARAKTERSİZ GLOBAL SLASH KOMUTLARI ===
 # =====================================================================
 
 @bot.tree.command(name="cekilis", description="Canlı butonlu bir çekiliş başlatır (Yönetici).")
@@ -409,12 +405,13 @@ async def on_ready():
     bot.add_view(PanelAnaView())
     bot.add_view(RolBasvuruView())
     bot.add_view(TicketIciAksiyonView())
+    
+    # KESİN ÇÖZÜM: Komutları küresel (global) olarak senkronize ediyoruz.
     try:
-        for guild in bot.guilds: 
-            await bot.tree.sync(guild=guild)
-        print("Slash komutları senkronize edildi.")
+        await bot.tree.sync()
+        print("Tüm global slash komutları Discord API'sine başarıyla işlendi!")
     except Exception as e: 
-        print(e)
+        print(f"Senkronizasyon Hatası: {e}")
 
 TOKEN = os.environ.get('DISCORD_TOKEN', '')
 if TOKEN: 
