@@ -1,3 +1,4 @@
+
 import discord
 from discord.ext import commands, tasks
 from discord.ui import View, Button, Select, Modal, TextInput
@@ -27,7 +28,7 @@ intents.reactions = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # === ID YAPILANDIRMALARI ===
-GELEN_GIDEN_KANAL_ID = 1524866586475757704  # Güncellenen Gelen-Giden Kanal ID'si
+GELEN_GIDEN_KANAL_ID = 1524866586475757704  # Güncel Gelen-Giden Kanal ID'si
 BASVURU_KANAL_ID = 1524879141793435689
 LOG_KANAL_ID = 1524879141793435689
 PAZAR_KANAL_ID = 1524866586912227330
@@ -139,7 +140,8 @@ class PanelKategoriDropdown(Select):
             discord.SelectOption(label="Reklam", value="reklam", emoji="💵"),
             discord.SelectOption(label="Genel", value="genel", emoji="📜")
         ]
-        super().__init__(placeholder="📌 Bir destek kategorisi seçin", min_values=1, max_values=1, custom_id="panel_dropdown")
+        # DÜZELTME: Seçenekleri (options) menünün başlangıç ayarlarına ekledik
+        super().__init__(placeholder="📌 Bir destek kategorisi seçin", min_values=1, max_values=1, options=options, custom_id="panel_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
         kategori_key = self.values[0]
