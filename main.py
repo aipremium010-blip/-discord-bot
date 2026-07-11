@@ -6,6 +6,9 @@ from discord.ext import commands
 from threading import Thread
 from flask import Flask
 
+# === LOG KANALI AYARI ===
+BAŞVURU_LOG_KANAL_ID = 1524879141793435689
+
 # === RENDER PORT HATASINI ÇÖZMEK İÇİN KEEPALIVE SİSTEMİ ===
 app = Flask('')
 
@@ -27,7 +30,7 @@ intents.message_content = True
 intents.guilds = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# === TICKET (DESTEK) SİSTEMİ MODAL VE VİEW'LERİ ===
+# === TICKET SİSTEMİ ===
 class TicketKapatView(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -73,15 +76,59 @@ class PanelAnaView(View):
         await ticket_channel.send(embed=embed, view=TicketKapatView())
         await interaction.followup.send(f"✅ Destek talebiniz oluşturuldu: {ticket_channel.mention}", ephemeral=True)
 
-# === GÜNCELLENMİŞ YETKİLİ BAŞVURU SİSTEMİ ===
+# === BAŞVURU DEĞERLENDİRME BUTONLARI ===
+class BasvuruIncelemeView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Onayla", style=discord.ButtonStyle.success, emoji="✅", custom_id="basvuru_onayla_btn")
+    async def onayla(self, interaction: discord.Interaction, button: discord.Button):
+        embed = interaction.message.embeds[0]
+        embed.color = discord.Color.green()
+        embed.title = "✅ YETKİLİ BAŞVURUSU ONAYLANDI"
+        embed.set_footer(text=f"Onaylayan Yetkili: {interaction.user.name}")
+        
+        for item in self.children:
+            item.disabled = True
+            
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="Reddet", style=discord.ButtonStyle.danger, emoji="❌", custom_id="basvuru_reddet_btn")
+    async def reddet(self, interaction: discord.Interaction, button: discord.Button):
+        embed = interaction.message.embeds[0]
+        embed.color = discord.Color.red()
+        embed.title = "❌ YETKİLİ BAŞVURUSU REDDEDİLDİ"
+        embed.set_footer(text=f"Reddeden Yetkili: {interaction.user.name}")
+        
+        for item in self.children:
+            item.disabled = True
+            
+        await interaction.response.edit_message(embed=embed, view=self)
+
+# === SOYADI KALDIRILMIŞ BAŞVURU FORMU ===
 class YetkiliBasvuruModal(Modal, title="MTTS Yetkili Başvuru Formu"):
-    ad_soyad = TextInput(label="Adınız Soyadınız", placeholder="Örn: Ahmet Yılmaz", required=True)
+    ad = TextInput(label="Adınız", placeholder="Örn: Ahmet", required=True)
     gorev = TextInput(label="İstediğiniz Görev", placeholder="Örn: Moderatör", required=True)
     aktiflik = TextInput(label="Haftalık Aktiflik Süreniz", placeholder="Örn: Haftada 20 saat", required=True)
     deneyim = TextInput(label="Daha Önce Yetkili Oldunuz mu?", placeholder="Deneyimlerinizi kısaca yazın", style=discord.TextStyle.paragraph, required=True)
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message("✅ Başvurunuz MTTS yönetim ekibine başarıyla iletildi!", ephemeral=True)
+        
+        log_channel = interaction.guild.get_channel(BAŞVURU_LOG_KANAL_ID)
+        if log_channel:
+            embed = discord.Embed(
+                title="📝 YENİ YETKİLİ BAŞVURUSU GELDİ",
+                color=discord.Color.orange()
+            )
+            embed.add_field(name="👤 Başvuran Kullanıcı:", value=f"{interaction.user.mention} ({interaction.user.name})", inline=False)
+            embed.add_field(name="✍️ İsim:", value=self.ad.value, inline=True)
+            embed.add_field(name="🛡️ İstediği Görev:", value=self.gorev.value, inline=True)
+            embed.add_field(name="⏰ Aktiflik Süresi:", value=self.aktiflik.value, inline=False)
+            embed.add_field(name="📖 Deneyimleri:", value=self.deneyim.value, inline=False)
+            embed.set_thumbnail(url=interaction.user.display_avatar.url)
+            
+            await log_channel.send(embed=embed, view=BasvuruIncelemeView())
 
 class YetkiliBasvuruView(View):
     def __init__(self): super().__init__(timeout=None)
@@ -90,7 +137,7 @@ class YetkiliBasvuruView(View):
     async def basvuru_btn(self, interaction: discord.Interaction, button: discord.Button):
         await interaction.response.send_modal(YetkiliBasvuruModal())
 
-# === GÜNCELLENMİŞ PAKET DROPDOWN (MTTS REKLAM PAKETLERİ) ===
+# === REKLAM DROPDOWN SİSTEMİ ===
 class PaketDropdown(Select):
     def __init__(self):
         options = [
@@ -103,10 +150,10 @@ class PaketDropdown(Select):
         if self.values[0] == "mtts_reklam":
             embed = discord.Embed(title="💎 MTTS REKLAM PAKETLERİ", color=discord.Color.gold())
             embed.description = (
-                "**1. DEMİR PAKET (100 TL)**\n• 1 Everyone + 3 Gün Oda\n\n"
-                "**2. ALTIN PAKET (200 TL)**\n• 1 Everyone + 5 Gün Oda + Greet\n\n"
-                "**3. ELMAS PAKET (250 TL)**\n• 1 Everyone + 1 Here + 7 Gün Oda + Greet\n\n"
-                "**4. NETHERİT PAKET (400 TL)**\n• 2 Everyone + 14 Gün Oda + Greet"
+                "**1. DEMİR PAKET (100 TL)**\n• 1 Everyone + 3 Gün Oda\n• *Çekiliş Sizden*\n\n"
+                "**2. ALTIN PAKET (200 TL)**\n• 1 Everyone + 5 Gün Oda + Greet\n• *Çekiliş Bizden*\n\n"
+                "**3. ELMAS PAKET (250 TL)**\n• 1 Everyone + 1 Here + 7 Gün Oda + Greet\n• *Çekiliş Bizden*\n\n"
+                "**4. NETHERİT PAKET (400 TL)**\n• 2 Everyone + 14 Gün Oda + Greet\n• *Çekiliş Bizden*"
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
         elif self.values[0] == "ping_hizmet":
@@ -119,7 +166,6 @@ class PaketPanelView(View):
         super().__init__(timeout=None)
         self.add_item(PaketDropdown())
 
-# === DİĞER ESKİ ROL/PANEL YAPILARI (UYUMLULUK İÇİN KALICI YAPI) ===
 class RolBasvuruView(View):
     def __init__(self): super().__init__(timeout=None)
 
@@ -161,9 +207,9 @@ async def on_ready():
     bot.add_view(PaketPanelView())
     bot.add_view(YetkiliBasvuruView())
     bot.add_view(RolBasvuruView())
+    bot.add_view(BasvuruIncelemeView())
     await bot.tree.sync()
     print("--- MTTS Sistemi Başarıyla Başlatıldı ---")
 
-# Web sunucusunu ve botu çalıştırıyoruz
 keep_alive()
 bot.run(os.environ.get("DISCORD_TOKEN"))
