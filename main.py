@@ -133,7 +133,7 @@ class DestekPanelView(View):
         super().__init__(timeout=None)
         self.add_item(DestekDropdown())
 
-# === 2. REKLAM VE PİNG SİSTEMLERİ ===
+# === 2. GÜNCEL REKLAM VE PİNG SİSTEMLERİ ===
 class ReklamHizmetModal(Modal):
     def __init__(self, hizmet_turu: str, detaylar: str = ""):
         super().__init__(title=f"{hizmet_turu} Başvuru Formu")
@@ -169,10 +169,10 @@ class ReklamHizmetModal(Modal):
 class ReklamPaketleriSubDropdown(Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Demir Paket", value="demir", emoji="🪙", description="1 Duyuru | Çekiliş Sizden"),
-            discord.SelectOption(label="Altın Paket", value="altin", emoji="🥇", description="2 Duyuru | Sabit Kanal"),
-            discord.SelectOption(label="Elmas Paket", value="elmas", emoji="💎", description="3 Duyuru | Detaylı Katılım"),
-            discord.SelectOption(label="Netherite Paket", value="netherite", emoji="🔥", description="Sınırsız/Özel Destek & Sponsorluk")
+            discord.SelectOption(label="Demir Paket - 100 TL", value="demir", emoji="🪙", description="3 Gün | 1 Everyone | Çekiliş Onlardan"),
+            discord.SelectOption(label="Altın Paket - 150 TL", value="altin", emoji="🥇", description="5 Gün | 1 Everyone | Çekiliş Bizden + Greet"),
+            discord.SelectOption(label="Elmas Paket - 300 TL", value="elmas", emoji="💎", description="7 Gün | 1 Everyone + 1 Here | Çekiliş Bizden"),
+            discord.SelectOption(label="Netherite Paket - 400 TL", value="netherite", emoji="🔥", description="14 Gün | 2 Everyone | Özel Oda + Greet")
         ]
         super().__init__(placeholder="İncelemek istediğiniz reklam paketini seçin", options=options, custom_id="mtts_paket_alt_dropdown")
 
@@ -181,17 +181,17 @@ class ReklamPaketleriSubDropdown(Select):
         embed = discord.Embed(color=discord.Color.from_rgb(41, 128, 185))
         
         if secilen == "demir":
-            embed.title = "🪙 Demir Reklam Paketi"
-            embed.description = "• 1 Adet @everyone Etiketli Duyuru\n• 24 Saat Sabit Kanal\n• **Çekiliş sizden** (Ödül sunucu tarafından karşılanır)"
+            embed.title = "🪙 Demir Reklam Paketi - 100 TL"
+            embed.description = "• **Süre:** 3 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti\n• **Çekiliş:** Çekiliş onlardan (Ödülü kendileri karşılar)"
         elif secilen == "altin":
-            embed.title = "🥇 Altın Reklam Paketi"
-            embed.description = "• 2 Adet @everyone Etiketli Duyuru\n• 48 Saat Sabit Kanal\n• Özel Katılım ve Rol Desteği"
+            embed.title = "🥇 Altın Reklam Paketi - 150 TL"
+            embed.description = "• **Süre:** 5 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet (Karşılama)\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
         elif secilen == "elmas":
-            embed.title = "💎 Elmas Reklam Paketi"
-            embed.description = "• 3 Adet @everyone Etiketli Duyuru\n• 1 Hafta Sabit Kanal\n• Öne Çıkarılan Sponsor Kategorisi"
+            embed.title = "💎 Elmas Reklam Paketi - 300 TL"
+            embed.description = "• **Süre:** 7 Gün Sabit\n• **Etiket:** 1 Adet @everyone + 1 Adet @here\n• **Özellikler:** Özel Oda, Greet (Karşılama)\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
         elif secilen == "netherite":
-            embed.title = "🔥 Netherite Reklam Paketi"
-            embed.description = "• Sınırsız / Özel Süreli @everyone Duyuruları\n• Kalıcı Reklam Kanalı\n• Özel Sponsor Rolü & Sosyal Medya Desteği"
+            embed.title = "🔥 Netherite Reklam Paketi - 400 TL"
+            embed.description = "• **Süre:** 14 Gün Sabit\n• **Etiket:** 2 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet (Karşılama Desteği)"
 
         view = View()
         class BasvurButton(discord.ui.Button):
@@ -277,11 +277,11 @@ class RolTalepModal(Modal):
         self.rol_label = rol_label
         self.ad = TextInput(label="İsminiz", required=True)
         self.sunucu_adi = TextInput(label="Sunucu İsminiz", required=True)
-        self.sunucu_detay = TextInput(label="Sunucu Detay", style=discord.TextStyle.paragraph, required=True)
+        self.sunucu_det= TextInput(label="Sunucu Detay", style=discord.TextStyle.paragraph, required=True)
         self.sunucu_link = TextInput(label="Sunucu Link", placeholder="discord.gg/...", required=True)
         self.add_item(self.ad)
         self.add_item(self.sunucu_adi)
-        self.add_item(self.sunucu_detay)
+        self.add_item(self.sunucu_det)
         self.add_item(self.sunucu_link)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -293,7 +293,7 @@ class RolTalepModal(Modal):
             embed.add_field(name="İsim", value=self.ad.value, inline=True)
             embed.add_field(name="Sunucu", value=self.sunucu_adi.value, inline=True)
             embed.add_field(name="Link", value=self.sunucu_link.value, inline=False)
-            embed.add_field(name="Detay", value=self.sunucu_detay.value, inline=False)
+            embed.add_field(name="Detay", value=self.sunucu_det.value, inline=False)
             await log_kanali.send(embed=embed)
         await interaction.response.send_message("✅ Rol talebiniz alındı, yetkililer kontrol edecektir.", ephemeral=True)
 
@@ -317,9 +317,8 @@ class RolBasvuruView(View):
         self.add_item(RolDropdown())
 
 # === 4. SLASH KOMUTLARI ===
-@bot.tree.command(name="paketler", description="Maden temalı reklam paketlerinin listesini ve detaylarını gösterir.")
+@bot.tree.command(name="paketler", description="Maden temalı güncel reklam paketlerinin listesini ve fiyatlarını gösterir.")
 async def slash_paketler(interaction: discord.Interaction):
-    """İstediğin paketler komutu: Doğrudan alt menüyü açar"""
     sub_view = View()
     sub_view.add_item(ReklamPaketleriSubDropdown())
     await interaction.response.send_message("🔎 Detaylarını görmek istediğiniz MTTS Reklam Paketini seçin:", view=sub_view, ephemeral=True)
@@ -372,7 +371,7 @@ async def slash_destek_panel(interaction: discord.Interaction):
 @bot.tree.command(name="yetkili-basvuru-panel", description="Yetkili başvuru panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_yb_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu eksikosiz doldurunuz.", color=discord.Color.gold())
+    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu eksiksiz doldurunuz.", color=discord.Color.gold())
     await interaction.channel.send(embed=embed, view=YetkiliBasvuruView())
     await interaction.response.send_message("Yetkili başvuru paneli kuruldu.", ephemeral=True)
 
@@ -411,7 +410,7 @@ async def on_ready():
     bot.add_view(RolBasvuruView())
     bot.add_view(HizmetlerPanelView())
     await bot.tree.sync()
-    print("--- Tüm Paketler, Reklam Komutları ve Paneller Eksiksiz Senkronize Edildi! ---")
+    print("--- 100/150/300/400 TL Yeni Fiyatlı Paketler API'ye Kaydedildi! ---")
 
 keep_alive()
 bot.run(os.environ.get("DISCORD_TOKEN"))
