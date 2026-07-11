@@ -1,4 +1,24 @@
-# === GÜNCELLENMİŞ PAKET DROPDOWN (MTTS REKLAM PAKETLERİ) ===
+import discord
+from discord import app_commands
+from discord.ui import Select, Modal, TextInput, View
+from discord.ext import commands
+
+# BOT AYARLARI
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+# === MODALLAR (Başvuru) ===
+class YetkiliBasvuruModal(Modal, title="MTTS Yetkili Başvuru Formu"):
+    ad_soyad = TextInput(label="Adınız Soyadınız", placeholder="Örn: Ahmet Yılmaz", required=True)
+    gorev = TextInput(label="İstediğiniz Görev", placeholder="Örn: Moderatör", required=True)
+    aktiflik = TextInput(label="Haftalık Aktiflik Süreniz", placeholder="Örn: Haftada 20 saat", required=True)
+    deneyim = TextInput(label="Daha Önce Yetkili Oldunuz mu?", placeholder="Deneyimlerinizi kısaca yazın", style=discord.TextStyle.paragraph, required=True)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.send_message("✅ Başvurunuz MTTS yönetim ekibine başarıyla iletildi!", ephemeral=True)
+
+# === VIEWLER (Butonlar ve Dropdownlar) ===
 class PaketDropdown(Select):
     def __init__(self):
         options = [
@@ -18,24 +38,15 @@ class PaketDropdown(Select):
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
         elif self.values[0] == "ping_hizmet":
-            # Eski ping hizmetleri kodun
             embed = discord.Embed(title="📢 PING HİZMETLERİ", color=discord.Color.from_rgb(230, 126, 34))
             embed.description = "🔵 **Anlık `@everyone` Ping:** `80 TL`\n🟡 **Anlık `@here` Ping:** `50 TL`"
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# === GÜNCELLENMİŞ YETKİLİ BAŞVURU MODALI ===
-class YetkiliBasvuruModal(Modal, title="MTTS Yetkili Başvuru Formu"):
-    ad_soyad = TextInput(label="Adınız Soyadınız", placeholder="Örn: Ahmet Yılmaz", required=True)
-    gorev = TextInput(label="İstediğiniz Görev", placeholder="Örn: Moderatör", required=True)
-    aktiflik = TextInput(label="Haftalık Aktiflik Süreniz", placeholder="Örn: Haftada 20 saat", required=True)
-    deneyim = TextInput(label="Daha Önce Yetkili Oldunuz mu?", placeholder="Deneyimlerinizi kısaca yazın", style=discord.TextStyle.paragraph, required=True)
+class PaketPanelView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(PaketDropdown())
 
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        # Buraya başvuru kanalına gönderme mantığını (embed oluşturma) orijinal kodundaki gibi ekleyebilirsin
-        await interaction.followup.send("✅ Başvurunuz MTTS yönetim ekibine başarıyla iletildi!", ephemeral=True)
-
-# === GÜNCELLENMİŞ YETKİLİ BAŞVURU VIEW ===
 class YetkiliBasvuruView(View):
     def __init__(self): super().__init__(timeout=None)
     
@@ -43,12 +54,25 @@ class YetkiliBasvuruView(View):
     async def basvuru_btn(self, interaction: discord.Interaction, button: discord.Button):
         await interaction.response.send_modal(YetkiliBasvuruModal())
 
-# === BOT BAŞLANGIÇ KAYITLARI (on_ready) ===
+# === KOMUTLAR ===
+@bot.tree.command(name="paketler", description="MTTS Hizmet Paketleri paneli")
+async def slash_paketler(interaction: discord.Interaction):
+    embed = discord.Embed(title="MTTS Hizmetleri", description="Aşağıdaki menüden paketleri inceleyebilirsiniz.", color=discord.Color.blue())
+    await interaction.channel.send(embed=embed, view=PaketPanelView())
+    await interaction.response.send_message("Panel başarıyla kuruldu.", ephemeral=True)
+
+@bot.tree.command(name="yetkili-paneli", description="MTTS Yetkili Paneli")
+async def slash_yetkili_paneli(interaction: discord.Interaction):
+    embed = discord.Embed(title="MTTS Yetkili Alımları", description="Yetkili olmak için aşağıdaki butona tıklayın.", color=discord.Color.green())
+    await interaction.channel.send(embed=embed, view=YetkiliBasvuruView())
+    await interaction.response.send_message("MTTS yetkili paneli başarıyla kuruldu.", ephemeral=True)
+
+# === BAŞLATMA ===
 @bot.event
 async def on_ready():
-    bot.add_view(PaketPanelView()) # PaketDropdown'ı içeren view
-    bot.add_view(PanelAnaView())
-    bot.add_view(RolBasvuruView())
-    bot.add_view(YetkiliBasvuruView()) # Yeni yetkili başvuru butonu
+    bot.add_view(PaketPanelView())
+    bot.add_view(YetkiliBasvuruView())
     await bot.tree.sync()
-    print("--- MTTS Bot Aktif ---")
+    print("--- MTTS Bot başarıyla başlatıldı ve senkronize edildi! ---")
+
+bot.run("TOKEN_BURAYA")
