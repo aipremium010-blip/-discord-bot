@@ -10,12 +10,6 @@ from flask import Flask
 BAŞVURU_LOG_KANAL_ID = 1524879141793435689
 GIRIS_CIKIS_KANAL_ID = 123456789012345678  # Giriş-Çıkış log kanal ID'si
 
-# Başvuru onaylanınca verilecek rol ID'leri
-ROL_SUNUCU_SAHIBI = 123456789012345678
-ROL_KLAN_SAHIBI = 123456789012345678
-ROL_HOSTING_SAHIBI = 123456789012345678
-ROL_ICERIK_URETICISI = 123456789012345678
-
 # === RENDER KEEPALIVE SİSTEMİ ===
 app = Flask('')
 
@@ -208,7 +202,41 @@ class YetkiliBasvuruView(View):
         await interaction.response.send_modal(YetkiliBasvuruModal())
 
 
-# === 3. ÖZEL ROL BAŞVURU SİSTEMİ (DROPDOWN) ===
+# === 3. ÖZEL ROL BAŞVURU SİSTEMİ (DROPDOWN + İSTENEN MODAL FORMU) ===
+class RolTalepModal(Modal):
+    def __init__(self, rol_key: str, rol_label: str):
+        super().__init__(title=f"{rol_label} Rol Başvuru Formu")
+        self.rol_label = rol_label
+
+        self.ad = TextInput(label="İsminiz", placeholder="Lütfen adınızı girin...", required=True)
+        self.sunucu_adi = TextInput(label="Sunucu İsminiz", placeholder="Sahibi/Yetkilisi olduğunuz sunucu adı...", required=True)
+        self.sunucu_detay = TextInput(label="Sunucu Detay", placeholder="Sunucu hakkında kısa bilgi/üye sayısı...", style=discord.TextStyle.paragraph, required=True)
+        self.sunucu_link = TextInput(label="Sunucu Link", placeholder="discord.gg/...", required=True)
+
+        self.add_item(self.ad)
+        self.add_item(self.sunucu_adi)
+        self.add_item(self.sunucu_detay)
+        self.add_item(self.sunucu_link)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        log_kanali = interaction.guild.get_channel(BAŞVURU_LOG_KANAL_ID)
+        
+        if log_kanali:
+            # Fotoğraftaki gibi temiz, buton içermeyen, düzgün hizalı Embed formatı
+            embed = discord.Embed(title="Yeni Özel Rol Talebi!", color=discord.Color.blue())
+            embed.add_field(name="Kullanıcı", value=interaction.user.mention, inline=True)
+            embed.add_field(name="İstenen Rol", value=self.rol_label, inline=True)
+            embed.add_field(name="Başvuran İsmi", value=self.ad.value, inline=True)
+            embed.add_field(name="Sunucu İsmi", value=self.sunucu_adi.value, inline=True)
+            embed.add_field(name="Sunucu Link", value=self.sunucu_link.value, inline=False)
+            embed.add_field(name="Sunucu Detay", value=self.sunucu_detay.value, inline=False)
+            
+            embed.set_footer(text="Kanıt kontrolü yaptıktan sonra el ile rolü teslim edin.")
+            await log_kanali.send(embed=embed)
+            
+        await interaction.followup.send("✅ Rol talebiniz ve formunuz başarıyla alındı. Yetkililer el ile teslim edecektir.", ephemeral=True)
+
 class RolDropdown(Select):
     def __init__(self):
         options = [
@@ -220,19 +248,11 @@ class RolDropdown(Select):
         super().__init__(placeholder="Talep etmek istediğiniz rolü seçin", options=options, custom_id="rol_talep_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
-        secilen = self.values[0]
-        log_kanali = interaction.guild.get_channel(BAŞVURU_LOG_KANAL_ID)
-        
+        # Seçilen rolün değerini ve etiketini alıp Modal formunu fırlatıyoruz
+        secilen_value = self.values[0]
         rol_isimleri = {"sunucu": "Sunucu Sahibi", "klan": "Klan Sahibi", "hosting": "Hosting Sahibi", "icerik": "İçerik Üreticisi"}
         
-        if log_kanali:
-            embed = discord.Embed(title="Yeni Özel Rol Talebi!", color=discord.Color.blue())
-            embed.add_field(name="Kullanıcı", value=interaction.user.mention, inline=True)
-            embed.add_field(name="İstenen Rol", value=rol_isimleri[secilen], inline=True)
-            embed.set_footer(text="Kanıt kontrolü yaptıktan sonra el ile rolü teslim edin.")
-            await log_kanali.send(embed=embed)
-            
-        await interaction.response.send_message("✅ Rol talebiniz alındı. Yetkililer gerekli kontrolleri yapıp onaylayacaktır.", ephemeral=True)
+        await interaction.response.send_modal(RolTalepModal(rol_key=secilen_value, rol_label=rol_isimleri[secilen_value]))
 
 class RolBasvuruView(View):
     def __init__(self):
@@ -270,7 +290,7 @@ async def slash_yb_panel(interaction: discord.Interaction):
 @bot.tree.command(name="rol-basvuru-panel", description="Özel rol başvuru panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_rol_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="👑 Özel Rol Başvuru Paneli", description="Sahip olduğunuz unvanlara göre rol almak için aşağıdaki menüden seçim yapın.", color=discord.Color.blue())
+    embed = discord.Embed(title="👑 Özel Rol Başvuru Paneli", description="Sahip olduğunuz unvanlara göre rol almak için aşağıdaki menüden seçim yapın ve formu doldurun.", color=discord.Color.blue())
     await interaction.channel.send(embed=embed, view=RolBasvuruView())
     await interaction.response.send_message("Rol başvuru paneli kuruldu.", ephemeral=True)
 
@@ -300,13 +320,12 @@ async def slash_unlock(interaction: discord.Interaction):
 # === BOT BAŞLAMA VE VIEW KAYITLARI ===
 @bot.event
 async def on_ready():
-    # Bot yeniden başlasa bile butonların bozulmaması için (Persistent Views)
     bot.add_view(DestekPanelView())
     bot.add_view(DestekKanalIciView())
     bot.add_view(YetkiliBasvuruView())
     bot.add_view(RolBasvuruView())
     await bot.tree.sync()
-    print("--- Tüm MTTS Sistemleri Eksiksiz Şekilde Aktif! ---")
+    print("--- Formlu Özel Rol Sistemi ve Tüm Yapı Aktif! ---")
 
 keep_alive()
 bot.run(os.environ.get("DISCORD_TOKEN"))
