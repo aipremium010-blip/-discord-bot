@@ -1,7 +1,4 @@
-
-# Kullanıcının istediği değişiklikleri içeren güncellenmiş kodu oluşturuyorum
-
-updated_code = '''import discord
+'''import discord
 from discord.ext import commands, tasks
 from discord.ui import View, Button, Select, Modal, TextInput
 from discord import app_commands
