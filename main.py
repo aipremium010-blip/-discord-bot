@@ -13,7 +13,7 @@ from threading import Thread
 # === WEB SERVER ===
 app = Flask('')
 @app.route('/')
-def home(): return f"Bot aktif! {datetime.now().strftime('%H:%M:%S')}"
+def home(): return f"Bot aktif! Son kontrol: {datetime.now().strftime('%H:%M:%S')}"
 def run_web():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
@@ -26,16 +26,13 @@ intents.members = True
 intents.reactions = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# === SABİTLER ===
+# === ID YAPILANDIRMALARI ===
 GELEN_GIDEN_KANAL_ID = 1524866586475757704
 BASVURU_KANAL_ID = 1524879141793435689
 SUPPORT_ROL_ID = 1524866585637031961
 BANNER_URL = "https://images-ext-1.discordapp.net/external/re_m7v0e0_tA83Yw_4X2A2r3V8M/https/cdn.discordapp.com/attachments/1258071850123530341/1260613271783440465/image_42fd48.png"
-ROL_IDLERI = {"Sunucu Sahibi": 1524866585637031962, "Klan Sahibi": 1524866585637031963, "Hosting Sahibi": 1524866585637031964, "İçerik Üreticisi": 1524866585637031965}
-TICKET_KATEGORILERI = {"partnerlik": ("📃", "partnerlik"), "sikayet": ("🚨", "şikayet"), "yetkili-basvuru": ("📙", "yetkili başvurusu"), "reklam": ("💵", "reklam"), "genel": ("📜", "genel")}
 
-# [BURAYA GÖNDERDİĞİN TÜM CLASS YAPILARINI (PaketDropdown, CekilisKatilView, RolKararView vb.) EKLİYORUZ]
-# (Not: Kod bloğu sığması için sınıfları yukarıdaki kodundan alıp buraya yerleştiriyorsun)
+# --- (Buraya senin gönderdiğin uzun class yapılarını: PaketDropdown, CekilisKatilView, RolKararView vb. ekle) ---
 
 # === SLASH KOMUTLARI ===
 
@@ -46,23 +43,27 @@ async def slash_paketler(interaction: discord.Interaction):
     embed = discord.Embed(title="💎 Hizmet Paketleri", description="Hizmetlerimizi inceleyin.", color=discord.Color.blue())
     if BANNER_URL: embed.set_image(url=BANNER_URL)
     await interaction.channel.send(embed=embed, view=PaketPanelView())
-    await interaction.followup.send("✅ Panel kuruldu.", ephemeral=True)
+    await interaction.followup.send("✅ Paket paneli kuruldu.", ephemeral=True)
 
-@bot.tree.command(name="destek-panel", description="Destek panelini oluşturur.")
+@bot.tree.command(name="destek-panel", description="Destek panelini oluşturur (Yönetici).")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_destek_panel(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
-    embed = discord.Embed(title="📥 Destek Menüsü", description="Kategori seçin.", color=discord.Color.blue())
+    embed = discord.Embed(
+        title="📥 Destek Menüsü", 
+        description="Lütfen destek almak istediğiniz kategoriyi aşağıdaki menüden seçin.", 
+        color=discord.Color.from_rgb(88, 101, 242)
+    )
     if BANNER_URL: embed.set_image(url=BANNER_URL)
     await interaction.channel.send(embed=embed, view=PanelAnaView())
-    await interaction.followup.send("✅ Panel kuruldu.", ephemeral=True)
+    await interaction.followup.send("✅ Destek paneli oluşturuldu.", ephemeral=True)
 
-@bot.tree.command(name="sil", description="Mesaj siler.")
+@bot.tree.command(name="sil", description="Belirtilen miktarda mesajı siler (Yönetici).")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_sil(interaction: discord.Interaction, miktar: int):
     await interaction.response.defer(ephemeral=True)
     silinen = await interaction.channel.purge(limit=miktar)
-    await interaction.followup.send(f"✅ {len(silinen)} mesaj silindi.", ephemeral=True)
+    await interaction.followup.send(f"✅ {len(silinen)} adet mesaj başarıyla silindi.", ephemeral=True)
 
 @bot.event
 async def on_ready():
@@ -71,6 +72,8 @@ async def on_ready():
     bot.add_view(PanelAnaView())
     bot.add_view(RolBasvuruView())
     bot.add_view(YetkiliBasvuruView())
+    bot.add_view(CekilisKatilView(odul="Test", bitis_zamani=datetime.now(), kazanan_sayisi=1))
+    
     await bot.tree.sync()
     print(f"{bot.user} başarıyla başlatıldı ve senkronize edildi!")
 
