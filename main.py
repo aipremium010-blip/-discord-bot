@@ -133,36 +133,101 @@ class DestekPanelView(View):
         super().__init__(timeout=None)
         self.add_item(DestekDropdown())
 
-# === 2. PAKETLER SİSTEMİ (REKLAM PAKETLERİ) ===
-class PaketDropdown(Select):
+# === 2. GÜNCELLENEN REKLAM VE PİNG SİSTEMİ (DEMİR, ALTIN, ELMAS, NETHERITE) ===
+class ReklamHizmetModal(Modal):
+    def __init__(self, hizmet_turu: str, detaylar: str = ""):
+        super().__init__(title=f"{hizmet_turu} Başvuru Formu")
+        self.hizmet_turu = hizmet_turu
+
+        self.ad = TextInput(label="İsminiz", placeholder="Lütfen adınızı girin...", required=True)
+        self.paket_secimi = TextInput(label="Seçtiğiniz Paket / Ping Türü", default=detaylar, placeholder="Örn: Demir Paket / Everyone Ping vb.", required=True)
+        self.Detay = TextInput(label="Sunucu / Hizmet Detayı", placeholder="Reklamı yapılacak içerik veya detaylar...", style=discord.TextStyle.paragraph, required=True)
+        self.link = TextInput(label="Yönlendirilecek Link", placeholder="discord.gg/...", required=True)
+
+        self.add_item(self.ad)
+        self.add_item(self.paket_secimi)
+        self.add_item(self.Detay)
+        self.add_item(self.link)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        log_kanali = interaction.guild.get_channel(BAŞVURU_LOG_KANAL_ID)
+        
+        if log_kanali:
+            embed = discord.Embed(title="📢 Yeni Reklam / Hizmet Başvurusu!", color=discord.Color.green())
+            embed.add_field(name="Kullanıcı", value=interaction.user.mention, inline=True)
+            embed.add_field(name="Hizmet Grubu", value=self.hizmet_turu, inline=True)
+            embed.add_field(name="Başvuran İsmi", value=self.ad.value, inline=True)
+            embed.add_field(name="Seçtiği Paket/Ping", value=self.paket_secimi.value, inline=True)
+            embed.add_field(name="Link", value=self.link.value, inline=False)
+            embed.add_field(name="Açıklama / Detay", value=self.Detay.value, inline=False)
+            embed.set_footer(text="Gerekli ödeme/şart kontrollerini yapıp el ile işleme alın.")
+            await log_kanali.send(embed=embed)
+            
+        await interaction.followup.send("✅ Reklam başvurunuz başarıyla yetkililere iletildi!", ephemeral=True)
+
+class ReklamPaketleriSubDropdown(Select):
+    """Reklam paketleri seçildiğinde açılacak alt menü (Demir, Altın, Elmas, Netherite)"""
     def __init__(self):
         options = [
-            discord.SelectOption(label="Bronz Paket", value="bronz", emoji="🥉"),
-            discord.SelectOption(label="Gümüş Paket", value="gumus", emoji="🥈"),
-            discord.SelectOption(label="Altın Paket", value="altin", emoji="🥇")
+            discord.SelectOption(label="Demir Paket", value="demir", emoji="🪙", description="1 Duyuru | Çekiliş Sizden"),
+            discord.SelectOption(label="Altın Paket", value="altin", emoji="🥇", description="2 Duyuru | Sabit Kanal"),
+            discord.SelectOption(label="Elmas Paket", value="elmas", emoji="💎", description="3 Duyuru | Detaylı Katılım"),
+            discord.SelectOption(label="Netherite Paket", value="netherite", emoji="🔥", description="Sınırsız/Özel Destek & Sponsorluk")
         ]
-        super().__init__(placeholder="Detaylarını görmek istediğiniz paketi seçin", options=options, custom_id="reklam_paket_dropdown")
+        super().__init__(placeholder="İncelemek istediğiniz reklam paketini seçin", options=options, custom_id="mtts_paket_alt_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
         secilen = self.values[0]
-        embed = discord.Embed(color=discord.Color.blue())
+        embed = discord.Embed(color=discord.Color.from_rgb(41, 128, 185))
         
-        if secilen == "bronz":
-            embed.title = "🥉 Bronz Reklam Paketi"
+        if secilen == "demir":
+            embed.title = "🪙 Demir Reklam Paketi"
             embed.description = "• 1 Adet @everyone Etiketli Duyuru\n• 24 Saat Sabit Kanal\n• **Çekiliş sizden** (Ödül sunucu tarafından karşılanır)"
-        elif secilen == "gumus":
-            embed.title = "🥈 Gümüş Reklam Paketi"
-            embed.description = "• 2 Adet @everyone Etiketli Duyuru\n• 48 Saat Sabit Kanal\n• Çekiliş ve Katılım Yönetimi"
         elif secilen == "altin":
             embed.title = "🥇 Altın Reklam Paketi"
-            embed.description = "• 3 Adet @everyone Etiketli Duyuru\n• 1 Hafta Sabit Kanal\n• Özel Sponsor Rolü & Katılım Desteği"
-            
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+            embed.description = "• 2 Adet @everyone Etiketli Duyuru\n• 48 Saat Sabit Kanal\n• Özel Katılım ve Rol Desteği"
+        elif secilen == "elmas":
+            embed.title = "💎 Elmas Reklam Paketi"
+            embed.description = "• 3 Adet @everyone Etiketli Duyuru\n• 1 Hafta Sabit Kanal\n• Öne Çıkarılan Sponsor Kategorisi"
+        elif secilen == "netherite":
+            embed.title = "🔥 Netherite Reklam Paketi"
+            embed.description = "• Sınırsız / Özel Süreli @everyone Duyuruları\n• Kalıcı Reklam Kanalı\n• Özel Sponsor Rolü & Sosyal Medya Desteği"
 
-class PaketPanelView(View):
+        # Kullanıcının direkt başvurabilmesi için altına bir buton ekliyoruz
+        view = View()
+        class BasvurButton(discord.ui.Button):
+            def __init__(self, paket_adi):
+                super().__init__(label=f"{paket_adi} Satın Al / Başvur", style=discord.ButtonStyle.success, emoji="💳")
+                self.paket_adi = paket_adi
+            async def callback(self, inter: discord.Interaction):
+                await inter.response.send_modal(ReklamHizmetModal(hizmet_turu="MTTS Reklam Paketleri", detaylar=self.paket_adi))
+                
+        view.add_item(BasvurButton(paket_adi=f"{secilen.capitalize()} Paket"))
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+class HizmetlerDropdown(Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Ping Hizmetleri", value="Ping Hizmetleri", emoji="📢"),
+            discord.SelectOption(label="MTTS Reklam Paketleri", value="MTTS Reklam Paketleri", emoji="💵")
+        ]
+        super().__init__(placeholder="Aşağıdaki menüden paketleri inceleyebilirsiniz.", options=options, custom_id="mtts_hizmetler_dropdown")
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.values[0] == "MTTS Reklam Paketleri":
+            # Paket seçilirse alt menüyü gösteren bir view gönderiyoruz
+            sub_view = View()
+            sub_view.add_item(ReklamPaketleriSubDropdown())
+            await interaction.response.send_message("🔎 Detaylarını görmek istediğiniz maden paketini seçin:", view=sub_view, ephemeral=True)
+        else:
+            # Ping hizmetleri seçilirse direkt formu açıyoruz
+            await interaction.response.send_modal(ReklamHizmetModal(hizmet_turu=self.values[0]))
+
+class HizmetlerPanelView(View):
     def __init__(self):
         super().__init__(timeout=None)
-        self.add_item(PaketDropdown())
+        self.add_item(HizmetlerDropdown())
 
 # === 3. YETKİLİ / ROL BAŞVURU SİSTEMLERİ ===
 class YetkiliBasvuruIncelemeView(View):
@@ -255,14 +320,23 @@ class RolBasvuruView(View):
         super().__init__(timeout=None)
         self.add_item(RolDropdown())
 
-# === 4. YENİ EKLENEN SLASH KOMUTLARI (ANKET, ÇEKİLİŞ, LOCK, UNLOCK) ===
+# === 4. SLASH KOMUTLARI ===
+@bot.tree.command(name="reklam-hizmet-panel", description="Görseldeki MTTS Hizmetleri reklam başvuru panelini kurar.")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_reklam_hizmet_panel(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="🤖 MTTS Hizmetleri",
+        description="Aşağıdaki menüden paketleri inceleyebilirsiniz.",
+        color=discord.Color.from_rgb(52, 152, 219)
+    )
+    await interaction.channel.send(embed=embed, view=HizmetlerPanelView())
+    await interaction.response.send_message("Reklam hizmetleri paneli başarıyla kuruldu.", ephemeral=True)
+
 @bot.tree.command(name="anket", description="Sunucuda oylama/anket başlatır.")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def slash_anket(interaction: discord.Interaction, soru: str):
     embed = discord.Embed(title="📊 Yeni Anket / Oylama", description=soru, color=discord.Color.purple())
     embed.set_footer(text=f"Başlatan: {interaction.user.name}")
-    
-    # Yanıtı gönderip mesaja emojileri basıyoruz
     await interaction.response.send_message("Anket oluşturuluyor...", ephemeral=True)
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("✅")
@@ -273,22 +347,17 @@ async def slash_anket(interaction: discord.Interaction, soru: str):
 async def slash_cekilis(interaction: discord.Interaction, sure_saniye: int, odul: str):
     embed = discord.Embed(title="🎉 ÇEKİLİŞ BAŞLADI! 🎉", description=f"**Ödül:** {odul}\n**Süre:** {sure_saniye} saniye\n\nKatılmak için 🎉 tepkisine tıklayın!", color=discord.Color.gold())
     await interaction.response.send_message("Çekiliş başlatıldı.", ephemeral=True)
-    
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("🎉")
-    
     await asyncio.sleep(sure_saniye)
-    
-    # Mesajı yeniden çekip reaksiyon verenleri buluyoruz
     msg = await interaction.channel.fetch_message(msg.id)
     reaction = discord.utils.get(msg.reactions, emoji="🎉")
     users = [user async for user in reaction.users() if not user.bot]
-    
     if users:
         kazanan = random.choice(users)
         await interaction.channel.send(f"🎉 Tebrikler {kazanan.mention}! **{odul}** çekilişini kazandın!")
     else:
-        await interaction.channel.send("❌ Çekilişe kimse katılmadığı için kazanan belirlenemedi.")
+        await interaction.channel.send("❌ Çekilişe kimse katılmadı.")
 
 @bot.tree.command(name="destek-panel", description="Açılır Menülü Destek panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
@@ -296,13 +365,6 @@ async def slash_destek_panel(interaction: discord.Interaction):
     embed = discord.Embed(title="📥 Destek Menüsü", description="Aşağıdaki menüden destek talebi açabilirsiniz.", color=discord.Color.green())
     await interaction.channel.send(embed=embed, view=DestekPanelView())
     await interaction.response.send_message("Destek paneli kuruldu.", ephemeral=True)
-
-@bot.tree.command(name="paket-panel", description="Reklam paketleri panelini kurar.")
-@app_commands.checks.has_permissions(administrator=True)
-async def slash_paket_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="💵 Reklam Paketleri", description="Sunucumuzda reklam vermek için paket detaylarını aşağıdan inceleyebilirsiniz.", color=discord.Color.blue())
-    await interaction.channel.send(embed=embed, view=PaketPanelView())
-    await interaction.response.send_message("Paket paneli kuruldu.", ephemeral=True)
 
 @bot.tree.command(name="yetkili-basvuru-panel", description="Yetkili başvuru panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
@@ -344,9 +406,9 @@ async def on_ready():
     bot.add_view(DestekKanalIciView())
     bot.add_view(YetkiliBasvuruView())
     bot.add_view(RolBasvuruView())
-    bot.add_view(PaketPanelView())
+    bot.add_view(HizmetlerPanelView())
     await bot.tree.sync()
-    print("--- Tüm Sistemler (Anket, Çekiliş, Paketler dahil) Eksiksiz Aktif! ---")
+    print("--- Tüm Minecraft Maden Temalı Paket Sistemleri ve Hizmetler Paneli Aktif! ---")
 
 keep_alive()
 bot.run(os.environ.get("DISCORD_TOKEN"))
