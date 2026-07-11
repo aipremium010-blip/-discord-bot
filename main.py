@@ -8,8 +8,9 @@ from flask import Flask
 
 # === AYARLAR VE KANAL ID'LERİ ===
 BAŞVURU_LOG_KANAL_ID = 1524879141793435689
-GIRIS_CIKIS_KANAL_ID = 123456789012345678  # 👈 Giriş-Çıkış loglarının atılacağı kanal ID'sini buraya gir!
+GIRIS_CIKIS_KANAL_ID = 123456789012345678  # Giriş-Çıkış log kanal ID'si
 
+# Başvuru onaylanınca verilecek rol ID'leri
 ROL_SUNUCU_SAHIBI = 123456789012345678
 ROL_KLAN_SAHIBI = 123456789012345678
 ROL_HOSTING_SAHIBI = 123456789012345678
@@ -34,20 +35,20 @@ def keep_alive():
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
-intents.members = True # Giriş-Çıkış olaylarını yakalamak için kesinlikle True olmalı
+intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# === GİRİŞ VE ÇIKIŞ (HOŞ GELDİN / GÜLE GÜLE) SİSTEMİ ===
+# === GİRİŞ VE ÇIKIŞ SİSTEMİ ===
 @bot.event
 async def on_member_join(member):
     channel = member.guild.get_channel(GIRIS_CIKIS_KANAL_ID)
     if channel:
         embed = discord.Embed(
             description=f"{member.mention} aramıza hoş geldin! **{member.guild.member_count}** kişiyiz.",
-            color=discord.Color.from_rgb(46, 204, 113) # Canlı Yeşil (Fotoğraftaki gibi)
+            color=discord.Color.from_rgb(46, 204, 113)
         )
         embed.set_author(name="📥 Sunucuya Katıldı!")
-        embed.set_thumbnail(url=member.display_avatar.url) # Katılan kullanıcının profil fotoğrafını sağa koyar
+        embed.set_thumbnail(url=member.display_avatar.url)
         await channel.send(embed=embed)
 
 @bot.event
@@ -56,13 +57,13 @@ async def on_member_remove(member):
     if channel:
         embed = discord.Embed(
             description=f"**{member.name}** aramızdan ayrıldı. **{member.guild.member_count}** kişi kaldık.",
-            color=discord.Color.from_rgb(231, 76, 60) # Canlı Kırmızı
+            color=discord.Color.from_rgb(231, 76, 60)
         )
         embed.set_author(name="📤 Sunucudan Ayrıldı!")
         embed.set_thumbnail(url=member.display_avatar.url)
         await channel.send(embed=embed)
 
-# === YENİ GELİŞMİŞ DESTEK KANALI İÇİ BUTONLARI ===
+# === 1. DESTEK SİSTEMİ (DROPDOWN & MODAL) ===
 class DestekKanalIciView(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -84,7 +85,6 @@ class DestekKanalIciView(View):
     async def yardim_al(self, interaction: discord.Interaction, button: discord.Button):
         await interaction.response.send_message("🚨 Destek ekibine acil çağrı gönderildi! En kısa sürede odaklanacaklar.", ephemeral=False)
 
-# === KISACA SORUNUNUZU BİLDİRİN FORMU (MODAL) ===
 class DestekSorunuModal(Modal):
     def __init__(self, kategori: str):
         super().__init__(title=f"{kategori.capitalize()} Destek Formu")
@@ -133,7 +133,6 @@ class DestekSorunuModal(Modal):
         await ticket_channel.send(content=f"{member.mention}, destek talebiniz açıldı.", embed=embed, view=DestekKanalIciView())
         await interaction.followup.send(f"✅ Destek talebiniz başarıyla oluşturuldu: {ticket_channel.mention}", ephemeral=True)
 
-# === DROPDOWN (AÇIRLIR MENÜ) TASARIMI ===
 class DestekDropdown(Select):
     def __init__(self):
         options = [
@@ -154,27 +153,95 @@ class DestekPanelView(View):
         super().__init__(timeout=None)
         self.add_item(DestekDropdown())
 
-# === DİĞER RESMİ CLASSLAR ===
-class BasvuruIncelemeView(View):
-    def __init__(self): super().__init__(timeout=None)
+
+# === 2. YETKİLİ BAŞVURU SİSTEMİ ===
+class YetkiliBasvuruIncelemeView(View):
+    def __init__(self, basvuran_id: int):
+        super().__init__(timeout=None)
+        self.basvuran_id = basvuran_id
+
+    @discord.ui.button(label="Onayla", style=discord.ButtonStyle.success, custom_id="yb_onay")
+    async def onay(self, interaction: discord.Interaction, button: discord.Button):
+        guild = interaction.guild
+        üye = guild.get_member(self.basvuran_id)
+        if üye:
+            await interaction.response.send_message(f"✅ {üye.mention} adlı kullanıcının başvurusu onaylandı.", ephemeral=True)
+            await üye.send("🎉 Tebrikler! MTTS Yetkili başvurunuz kabul edildi.")
+        else:
+            await interaction.response.send_message("❌ Kullanıcı sunucuda bulunamadı.", ephemeral=True)
+
+    @discord.ui.button(label="Reddet", style=discord.ButtonStyle.danger, custom_id="yb_red")
+    async def reddet(self, interaction: discord.Interaction, button: discord.Button):
+        guild = interaction.guild
+        üye = guild.get_member(self.basvuran_id)
+        if üye:
+            await interaction.response.send_message(f"❌ {üye.mention} adlı kullanıcının başvurusu reddedildi.", ephemeral=True)
+            await üye.send("Maalesef, MTTS Yetkili başvurunuz olumsuz sonuçlandı.")
+        else:
+            await interaction.response.send_message("❌ Kullanıcı sunucuda bulunamadı.", ephemeral=True)
 
 class YetkiliBasvuruModal(Modal, title="MTTS Yetkili Başvuru Formu"):
     ad = TextInput(label="Adınız", placeholder="Örn: Ahmet", required=True)
     gorev = TextInput(label="İstediğiniz Görev", placeholder="Örn: Moderatör", required=True)
-    aktiflik = TextInput(label="Haftalık Aktiflik Süreniz", placeholder="Örn: Haftada 20 saat", required=True)
-    deneyim = TextInput(label="Daha Önce Yetkili Oldunuz mu?", placeholder="Deneyimleriniz...", style=discord.TextStyle.paragraph, required=True)
+    aktiflik = TextInput(label="Haftalık Aktiflik Süreniz", placeholder="Örn: 20 Saat", required=True)
+    deneyim = TextInput(label="Daha Önce Yetkili Oldunuz mu?", style=discord.TextStyle.paragraph, required=True)
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.send_message("✅ Başvurunuz başarıyla iletildi!", ephemeral=True)
+        log_kanali = interaction.guild.get_channel(BAŞVURU_LOG_KANAL_ID)
+        if log_kanali:
+            embed = discord.Embed(title="Yeni Yetkili Başvurusu Geldi!", color=discord.Color.gold())
+            embed.add_field(name="Başvuran", value=interaction.user.mention, inline=True)
+            embed.add_field(name="İsim", value=self.ad.value, inline=True)
+            embed.add_field(name="İstenen Görev", value=self.gorev.value, inline=True)
+            embed.add_field(name="Aktiflik", value=self.aktiflik.value, inline=True)
+            embed.add_field(name="Deneyim", value=self.deneyim.value, inline=False)
+            
+            await log_kanali.send(embed=embed, view=YetkiliBasvuruIncelemeView(interaction.user.id))
+        await interaction.response.send_message("✅ Başvurunuz başarıyla yetkililere iletildi!", ephemeral=True)
 
 class YetkiliBasvuruView(View):
-    def __init__(self): super().__init__(timeout=None)
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Başvuru Formunu Aç", style=discord.ButtonStyle.primary, custom_id="yb_form_ac")
+    async def basvuru_ac(self, interaction: discord.Interaction, button: discord.Button):
+        await interaction.response.send_modal(YetkiliBasvuruModal())
+
+
+# === 3. ÖZEL ROL BAŞVURU SİSTEMİ (DROPDOWN) ===
+class RolDropdown(Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Sunucu Sahibi", value="sunucu", emoji="👑"),
+            discord.SelectOption(label="Klan Sahibi", value="klan", emoji="⚔️"),
+            discord.SelectOption(label="Hosting Sahibi", value="hosting", emoji="🖥️"),
+            discord.SelectOption(label="İçerik Üreticisi", value="icerik", emoji="🎥")
+        ]
+        super().__init__(placeholder="Talep etmek istediğiniz rolü seçin", options=options, custom_id="rol_talep_dropdown")
+
+    async def callback(self, interaction: discord.Interaction):
+        secilen = self.values[0]
+        log_kanali = interaction.guild.get_channel(BAŞVURU_LOG_KANAL_ID)
+        
+        rol_isimleri = {"sunucu": "Sunucu Sahibi", "klan": "Klan Sahibi", "hosting": "Hosting Sahibi", "icerik": "İçerik Üreticisi"}
+        
+        if log_kanali:
+            embed = discord.Embed(title="Yeni Özel Rol Talebi!", color=discord.Color.blue())
+            embed.add_field(name="Kullanıcı", value=interaction.user.mention, inline=True)
+            embed.add_field(name="İstenen Rol", value=rol_isimleri[secilen], inline=True)
+            embed.set_footer(text="Kanıt kontrolü yaptıktan sonra el ile rolü teslim edin.")
+            await log_kanali.send(embed=embed)
+            
+        await interaction.response.send_message("✅ Rol talebiniz alındı. Yetkililer gerekli kontrolleri yapıp onaylayacaktır.", ephemeral=True)
 
 class RolBasvuruView(View):
-    def __init__(self): super().__init__(timeout=None)
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(RolDropdown())
+
 
 # === SLASH KOMUTLARI ===
-@bot.tree.command(name="destek-panel", description="MTTS Yenilenmiş Açılır Menülü Destek panelini kurar.")
+@bot.tree.command(name="destek-panel", description="MTTS Açılır Menülü Destek panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_destek_panel(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -191,7 +258,21 @@ async def slash_destek_panel(interaction: discord.Interaction):
     if interaction.guild.icon:
         embed.set_thumbnail(url=interaction.guild.icon.url)
     await interaction.channel.send(embed=embed, view=DestekPanelView())
-    await interaction.response.send_message("Destek paneli başarıyla kuruldu.", ephemeral=True)
+    await interaction.response.send_message("Destek paneli kuruldu.", ephemeral=True)
+
+@bot.tree.command(name="yetkili-basvuru-panel", description="Yetkili başvuru panelini kurar.")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_yb_panel(interaction: discord.Interaction):
+    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="MTTS bünyesinde yetkili olmak için aşağıdaki butona tıklayarak formu eksiksiz doldurunuz.", color=discord.Color.gold())
+    await interaction.channel.send(embed=embed, view=YetkiliBasvuruView())
+    await interaction.response.send_message("Yetkili başvuru paneli kuruldu.", ephemeral=True)
+
+@bot.tree.command(name="rol-basvuru-panel", description="Özel rol başvuru panelini kurar.")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_rol_panel(interaction: discord.Interaction):
+    embed = discord.Embed(title="👑 Özel Rol Başvuru Paneli", description="Sahip olduğunuz unvanlara göre rol almak için aşağıdaki menüden seçim yapın.", color=discord.Color.blue())
+    await interaction.channel.send(embed=embed, view=RolBasvuruView())
+    await interaction.response.send_message("Rol başvuru paneli kuruldu.", ephemeral=True)
 
 @bot.tree.command(name="sil", description="Belirtilen miktarda mesajı siler.")
 @app_commands.checks.has_permissions(administrator=True)
@@ -200,15 +281,32 @@ async def slash_sil(interaction: discord.Interaction, miktar: int):
     silinen = await interaction.channel.purge(limit=miktar)
     await interaction.followup.send(f"✅ {len(silinen)} adet mesaj silindi.", ephemeral=True)
 
+# === KİLİT (LOCK/UNLOCK) KOMUTLARI ===
+@bot.tree.command(name="lock", description="Kanalı üyelerin yazmasına kapatır.")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slash_lock(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
+    embed = discord.Embed(description="🔒 Bu kanal üyelerin yazışmasına **kapatılmıştır**.", color=discord.Color.red())
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="unlock", description="Kanalı yeniden üyelerin yazmasına açar.")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slash_unlock(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
+    embed = discord.Embed(description="🔓 Bu kanal üyelerin yazışmasına yeniden **açılmıştır**.", color=discord.Color.green())
+    await interaction.response.send_message(embed=embed)
+
+
 # === BOT BAŞLAMA VE VIEW KAYITLARI ===
 @bot.event
 async def on_ready():
+    # Bot yeniden başlasa bile butonların bozulmaması için (Persistent Views)
     bot.add_view(DestekPanelView())
     bot.add_view(DestekKanalIciView())
     bot.add_view(YetkiliBasvuruView())
     bot.add_view(RolBasvuruView())
     await bot.tree.sync()
-    print("--- Giriş Çıkış ve Tüm Sistemler Aktif! ---")
+    print("--- Tüm MTTS Sistemleri Eksiksiz Şekilde Aktif! ---")
 
 keep_alive()
 bot.run(os.environ.get("DISCORD_TOKEN"))
