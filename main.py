@@ -133,7 +133,7 @@ class DestekPanelView(View):
         super().__init__(timeout=None)
         self.add_item(DestekDropdown())
 
-# === 2. GÜNCELLENEN REKLAM VE PİNG SİSTEMİ (DEMİR, ALTIN, ELMAS, NETHERITE) ===
+# === 2. REKLAM VE PİNG SİSTEMLERİ ===
 class ReklamHizmetModal(Modal):
     def __init__(self, hizmet_turu: str, detaylar: str = ""):
         super().__init__(title=f"{hizmet_turu} Başvuru Formu")
@@ -167,7 +167,6 @@ class ReklamHizmetModal(Modal):
         await interaction.followup.send("✅ Reklam başvurunuz başarıyla yetkililere iletildi!", ephemeral=True)
 
 class ReklamPaketleriSubDropdown(Select):
-    """Reklam paketleri seçildiğinde açılacak alt menü (Demir, Altın, Elmas, Netherite)"""
     def __init__(self):
         options = [
             discord.SelectOption(label="Demir Paket", value="demir", emoji="🪙", description="1 Duyuru | Çekiliş Sizden"),
@@ -194,7 +193,6 @@ class ReklamPaketleriSubDropdown(Select):
             embed.title = "🔥 Netherite Reklam Paketi"
             embed.description = "• Sınırsız / Özel Süreli @everyone Duyuruları\n• Kalıcı Reklam Kanalı\n• Özel Sponsor Rolü & Sosyal Medya Desteği"
 
-        # Kullanıcının direkt başvurabilmesi için altına bir buton ekliyoruz
         view = View()
         class BasvurButton(discord.ui.Button):
             def __init__(self, paket_adi):
@@ -216,12 +214,10 @@ class HizmetlerDropdown(Select):
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "MTTS Reklam Paketleri":
-            # Paket seçilirse alt menüyü gösteren bir view gönderiyoruz
             sub_view = View()
             sub_view.add_item(ReklamPaketleriSubDropdown())
             await interaction.response.send_message("🔎 Detaylarını görmek istediğiniz maden paketini seçin:", view=sub_view, ephemeral=True)
         else:
-            # Ping hizmetleri seçilirse direkt formu açıyoruz
             await interaction.response.send_modal(ReklamHizmetModal(hizmet_turu=self.values[0]))
 
 class HizmetlerPanelView(View):
@@ -321,6 +317,13 @@ class RolBasvuruView(View):
         self.add_item(RolDropdown())
 
 # === 4. SLASH KOMUTLARI ===
+@bot.tree.command(name="paketler", description="Maden temalı reklam paketlerinin listesini ve detaylarını gösterir.")
+async def slash_paketler(interaction: discord.Interaction):
+    """İstediğin paketler komutu: Doğrudan alt menüyü açar"""
+    sub_view = View()
+    sub_view.add_item(ReklamPaketleriSubDropdown())
+    await interaction.response.send_message("🔎 Detaylarını görmek istediğiniz MTTS Reklam Paketini seçin:", view=sub_view, ephemeral=True)
+
 @bot.tree.command(name="reklam-hizmet-panel", description="Görseldeki MTTS Hizmetleri reklam başvuru panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_reklam_hizmet_panel(interaction: discord.Interaction):
@@ -369,7 +372,7 @@ async def slash_destek_panel(interaction: discord.Interaction):
 @bot.tree.command(name="yetkili-basvuru-panel", description="Yetkili başvuru panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_yb_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu eksiksiz doldurunuz.", color=discord.Color.gold())
+    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu eksikosiz doldurunuz.", color=discord.Color.gold())
     await interaction.channel.send(embed=embed, view=YetkiliBasvuruView())
     await interaction.response.send_message("Yetkili başvuru paneli kuruldu.", ephemeral=True)
 
@@ -408,7 +411,7 @@ async def on_ready():
     bot.add_view(RolBasvuruView())
     bot.add_view(HizmetlerPanelView())
     await bot.tree.sync()
-    print("--- Tüm Minecraft Maden Temalı Paket Sistemleri ve Hizmetler Paneli Aktif! ---")
+    print("--- Tüm Paketler, Reklam Komutları ve Paneller Eksiksiz Senkronize Edildi! ---")
 
 keep_alive()
 bot.run(os.environ.get("DISCORD_TOKEN"))
