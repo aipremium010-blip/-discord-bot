@@ -3,8 +3,25 @@ import os
 from discord import app_commands
 from discord.ui import Select, Modal, TextInput, View
 from discord.ext import commands
+from threading import Thread
+from flask import Flask
 
-# BOT AYARLARI
+# === RENDER PORT HATASINI ÇÖZMEK İÇİN KEEPALIVE SİSTEMİ ===
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "MTTS Bot Aktif!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run_web)
+    t.start()
+
+# === BOT AYARLARI ===
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
@@ -29,8 +46,6 @@ class PanelAnaView(View):
     @discord.ui.button(label="Destek Talebi Aç", style=discord.ButtonStyle.primary, emoji="📩", custom_id="ticket_ac_btn")
     async def ticket_ac(self, interaction: discord.Interaction, button: discord.Button):
         await interaction.response.defer(ephemeral=True)
-        
-        # Kullanıcıya özel kanal oluşturma ayarları
         guild = interaction.guild
         member = interaction.user
         
@@ -40,7 +55,6 @@ class PanelAnaView(View):
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
         
-        # Sistemde 'Yönetici' yetkisi olan rollere de izin veriyoruz
         for role in guild.roles:
             if role.permissions.administrator:
                 overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
@@ -52,14 +66,14 @@ class PanelAnaView(View):
         )
         
         embed = discord.Embed(
-            title="📥 MTTS Destek Talebi",
+            title="📥 MTTS DESTEK SİSTEMİ",
             description=f"Merhaba {member.mention}, destek ekibimiz en kısa sürede sizinle ilgilenecektir.\nTalebi kapatmak için aşağıdaki butona tıklayabilirsiniz.",
-            color=discord.Color.green()
+            color=discord.Color.blue()
         )
         await ticket_channel.send(embed=embed, view=TicketKapatView())
         await interaction.followup.send(f"✅ Destek talebiniz oluşturuldu: {ticket_channel.mention}", ephemeral=True)
 
-# === YETKİLİ BAŞVURU SİSTEMİ ===
+# === GÜNCELLENMİŞ YETKİLİ BAŞVURU SİSTEMİ ===
 class YetkiliBasvuruModal(Modal, title="MTTS Yetkili Başvuru Formu"):
     ad_soyad = TextInput(label="Adınız Soyadınız", placeholder="Örn: Ahmet Yılmaz", required=True)
     gorev = TextInput(label="İstediğiniz Görev", placeholder="Örn: Moderatör", required=True)
@@ -76,7 +90,7 @@ class YetkiliBasvuruView(View):
     async def basvuru_btn(self, interaction: discord.Interaction, button: discord.Button):
         await interaction.response.send_modal(YetkiliBasvuruModal())
 
-# === REKLAM VE HİZMET PAKETLERİ ===
+# === GÜNCELLENMİŞ PAKET DROPDOWN (MTTS REKLAM PAKETLERİ) ===
 class PaketDropdown(Select):
     def __init__(self):
         options = [
@@ -104,6 +118,10 @@ class PaketPanelView(View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(PaketDropdown())
+
+# === DİĞER ESKİ ROL/PANEL YAPILARI (UYUMLULUK İÇİN KALICI YAPI) ===
+class RolBasvuruView(View):
+    def __init__(self): super().__init__(timeout=None)
 
 # === SLASH KOMUTLARI ===
 @bot.tree.command(name="destek-panel", description="MTTS Destek panelini kurar.")
@@ -138,12 +156,14 @@ async def slash_sil(interaction: discord.Interaction, miktar: int):
 # === BOT BAŞLAMA VE VIEW KAYITLARI ===
 @bot.event
 async def on_ready():
-    # Kalıcı buton ve dropdown kayıtları
     bot.add_view(PanelAnaView())
     bot.add_view(TicketKapatView())
     bot.add_view(PaketPanelView())
     bot.add_view(YetkiliBasvuruView())
+    bot.add_view(RolBasvuruView())
     await bot.tree.sync()
     print("--- MTTS Sistemi Başarıyla Başlatıldı ---")
 
+# Web sunucusunu ve botu çalıştırıyoruz
+keep_alive()
 bot.run(os.environ.get("DISCORD_TOKEN"))
