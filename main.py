@@ -2,6 +2,7 @@ import discord
 import os
 import random
 import asyncio
+import re
 from discord import app_commands
 from discord.ui import Select, Modal, TextInput, View
 from discord.ext import commands
@@ -33,6 +34,26 @@ intents.message_content = True
 intents.guilds = True
 intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+# === SÜRE DÖNÜŞTÜRÜCÜ FONKSİYON ===
+def parse_duration(duration_str: str) -> int:
+    """'1s', '5m', '2h', '1d' gibi ifadeleri saniyeye çevirir."""
+    match = re.match(r"(\d+)([smhd]?)", duration_str.lower().strip())
+    if not match:
+        return 0
+    amount = int(match.group(1))
+    unit = match.group(2)
+    
+    if unit == 's': # Saniye
+        return amount
+    elif unit == 'm': # Dakika
+        return amount * 60
+    elif unit == 'h': # Saat
+        return amount * 3600
+    elif unit == 'd': # Gün
+        return amount * 86400
+    else:
+        return amount # Varsayılan olarak saniye kabul edilir
 
 # === GİRİŞ VE ÇIKIŞ SİSTEMİ ===
 @bot.event
@@ -344,22 +365,57 @@ async def slash_anket(interaction: discord.Interaction, soru: str):
     await msg.add_reaction("✅")
     await msg.add_reaction("❌")
 
-@bot.tree.command(name="cekilis", description="Hızlı bir çekiliş düzenler.")
+# === YENİLENMİŞ GELİŞMİŞ ÇEKİLİŞ KOMUTU ===
+@bot.tree.command(name="cekilis", description="Gelişmiş süre ve kazanan ayarlı çekiliş düzenler.")
 @app_commands.checks.has_permissions(manage_messages=True)
-async def slash_cekilis(interaction: discord.Interaction, sure_saniye: int, odul: str):
-    embed = discord.Embed(title="🎉 ÇEKİLİŞ BAŞLADI! 🎉", description=f"**Ödül:** {odul}\n**Süre:** {sure_saniye} saniye\n\nKatılmak için 🎉 tepkisine tıklayın!", color=discord.Color.gold())
-    await interaction.response.send_message("Çekiliş başlatıldı.", ephemeral=True)
+@app_commands.describe(
+    sure="Çekiliş süresi (Örn: 30s, 10m, 2h, 1d)",
+    odul="Çekiliş ödülü nedir?",
+    kazanan_sayisi="Çekilişi kaç kişi kazanacak? (Varsayılan: 1)"
+)
+async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, kazanan_sayisi: int = 1):
+    # Süreyi saniyeye çeviriyoruz
+    saniye = parse_duration(sure)
+    
+    if saniye <= 0:
+        await interaction.response.send_message("❌ Geçersiz süre formatı! Lütfen `30s`, `5m`, `2h` veya `1d` şeklinde girin.", ephemeral=True)
+        return
+
+    if kazanan_sayisi <= 0:
+        await interaction.response.send_message("❌ Kazanan sayısı en az 1 olmalıdır!", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title="🎉 ÇEKİLİŞ BAŞLADI! 🎉", 
+        description=f"**Ödül:** {odul}\n**Süre:** {sure}\n**Kazanan Sayısı:** {kazanan_sayisi} Kişi\n\nKatılmak için 🎉 tepkisine tıklayın!", 
+        color=discord.Color.gold()
+    )
+    embed.set_footer(text=f"Başlatan: {interaction.user.name}")
+    
+    await interaction.response.send_message("Çekiliş başarıyla başlatıldı.", ephemeral=True)
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("🎉")
-    await asyncio.sleep(sure_saniye)
+    
+    # Belirtilen süre kadar bekletiyoruz
+    await asyncio.sleep(saniye)
+    
+    # Mesajı ve reaksiyonları güncel olarak çekiyoruz
     msg = await interaction.channel.fetch_message(msg.id)
     reaction = discord.utils.get(msg.reactions, emoji="🎉")
+    
+    # Botları hariç tutarak kullanıcı listesini alıyoruz
     users = [user async for user in reaction.users() if not user.bot]
+    
     if users:
-        kazanan = random.choice(users)
-        await interaction.channel.send(f"🎉 Tebrikler {kazanan.mention}! **{odul}** çekilişini kazandın!")
+        # Eğer katılan kişi sayısı istenen kazanan sayısından azsa, katılan herkesi kazanan ilan et veya mevcut sayı kadar seç
+        gercek_kazanan_sayisi = min(kazanan_sayisi, len(users))
+        kazananlar = random.sample(users, k=gercek_kazanan_sayisi)
+        
+        kazanan_mentionlar = ", ".join([k.mention for k in kazananlar])
+        
+        await interaction.channel.send(f"🎉 Tebrikler {kazanan_mentionlar}! **{odul}** çekilişini kazandınız!")
     else:
-        await interaction.channel.send("❌ Çekilişe kimse katılmadı.")
+        await interaction.channel.send(f"❌ **{odul}** çekilişine yeterli katılım olmadığı için kazanan seçilemedi.")
 
 @bot.tree.command(name="destek-panel", description="Açılır Menülü Destek panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
