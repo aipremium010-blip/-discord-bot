@@ -240,7 +240,7 @@ class ReklamHizmetModal(Modal):
 class ReklamPaketleriSubDropdown(Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Demir Paket - 100 TL", value="demir", emoji="🪙", description="3 Gün | 1 Everyone | Çekiliş Onlardan"),
+            discord.SelectOption(label="Demir Paket - 100 TL", value="demir", emoji="🪙", description="3 Gün | 1 Everyone | Çekiliş Onlerden"),
             discord.SelectOption(label="Altın Paket - 150 TL", value="altin", emoji="🥇", description="5 Gün | 1 Everyone | Çekiliş Bizden + Greet"),
             discord.SelectOption(label="Elmas Paket - 300 TL", value="elmas", emoji="💎", description="7 Gün | 1 Everyone + 1 Here | Çekiliş Bizden + Greet"),
             discord.SelectOption(label="Netherite Paket - 400 TL", value="netherite", emoji="🔥", description="14 Gün | 2 Everyone | Özel Oda + Greet")
@@ -253,7 +253,7 @@ class ReklamPaketleriSubDropdown(Select):
         
         if secilen == "demir":
             embed.title = "🪙 Demir Reklam Paketi - 100 TL"
-            embed.description = "• **Süre:** 3 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti\n• **Greet Desteği:** ❌ Yok\n• **Çekiliş:** Çekiliş onlardan (Ödülü kendileri karşılar)"
+            embed.description = "• **Süre:** 3 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti\n• **Greet Desteği:** ❌ Yok\n• **Çekiliş:** Çekiliş onlerden (Ödülü kendileri karşılar)"
         elif secilen == "altin":
             embed.title = "🥇 Altın Reklam Paketi - 150 TL"
             embed.description = "• **Süre:** 5 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet (Karşılama Odasında Görünme)\n• **Greet Desteği:** Aktif\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
@@ -389,34 +389,37 @@ class RolBasvuruView(View):
 
 # === 4. SLASH KOMUTLARI ===
 
-# 🆕 YENİ EKLEME: EL İLE REKLAM GÖNDERME KOMUTU (/greet)
-@bot.tree.command(name="greet", description="Belirtilen kanala @everyone etiketli el ile reklam/partner duyurusu atar.")
+# ⚡ TRUE/FALSE AYARLI REKLAM GÖNDERME KOMUTU (/greet)
+@bot.tree.command(name="greet", description="Belirtilen kanala True/False seçimine göre @everyone etiketli reklam atar.")
 @app_commands.checks.has_permissions(manage_messages=True)
 @app_commands.describe(
     link="Reklamı yapılacak sunucunun davet linki (Örn: discord.gg/mtts)",
-    aciklama="Reklam metni veya sunucu açıklaması"
+    aciklama="Reklam metni veya sunucu açıklaması",
+    etiket_gitsin_mi="Everyone etiketi atılsın mı? True (Evet) / False (Hayır)"
 )
-async def slash_greet(interaction: discord.Interaction, link: str, aciklama: str):
-    # Ayarlanan reklam kanalını çekiyoruz
+async def slash_greet(interaction: discord.Interaction, link: str, aciklama: str, etiket_gitsin_mi: bool):
     hedef_kanal = interaction.guild.get_channel(REKLAM_KANAL_ID)
     
     if not hedef_kanal:
-        await interaction.response.send_message("❌ Reklam kanalı bulunamadı! Lütfen kodun en üstündeki REKLAM_KANAL_ID'yi kontrol edin.", ephemeral=True)
+        await interaction.response.send_message("❌ Reklam kanalı bulunamadı! Lütfen REKLAM_KANAL_ID'yi kontrol edin.", ephemeral=True)
         return
 
-    # Gönderilecek estetik şablon
+    # Temel reklam mesajı yapısı
     greet_yazisi = (
         f"**🌟 YENİ BİR PARTNER / REKLAM!**\n\n"
         f"📌 **Açıklama:** {aciklama}\n"
         f"🔗 **Katılmak İçin:** {link}\n\n"
-        f"*Sunucumuza destekleri için teşekkür ederiz!* \n@everyone"
+        f"*Sunucumuza destekleri için teşekkür ederiz!*"
     )
 
-    # Reklam kanalına mesajı gönderiyoruz
+    # True seçilirse alt satıra @everyone ekliyoruz, False seçilirse eklemiyoruz
+    if etiket_gitsin_mi:
+        greet_yazisi += "\n@everyone"
+
     await hedef_kanal.send(content=greet_yazisi)
     
-    # Komutu kullanan yetkiliye başarılı bildirimi yapıyoruz
-    await interaction.response.send_message(f"✅ Greet reklamı başarıyla <#{REKLAM_KANAL_ID}> kanalına gönderildi!", ephemeral=True)
+    durum_mesaji = "Etiketli" if etiket_gitsin_mi else "Sessiz (Etiketsiz)"
+    await interaction.response.send_message(f"✅ Greet reklamı {durum_mesaji} şekilde <#{REKLAM_KANAL_ID}> kanalına gönderildi!", ephemeral=True)
 
 
 @bot.tree.command(name="paketler", description="Maden temalı güncel reklam paketlerinin listesini ve fiyatlarını gösterir.")
@@ -513,7 +516,7 @@ async def slash_destek_panel(interaction: discord.Interaction):
 @bot.tree.command(name="yetkili-basvuru-panel", description="Yetkili başvuru panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_yb_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu eksiksiz doldurunuz.", color=discord.Color.gold())
+    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu eksikosiz doldurunuz.", color=discord.Color.gold())
     await interaction.channel.send(embed=embed, view=YetkiliBasvuruView())
     await interaction.response.send_message("Yetkili başvuru paneli kuruldu.", ephemeral=True)
 
@@ -522,7 +525,7 @@ async def slash_yb_panel(interaction: discord.Interaction):
 async def slash_rol_panel(interaction: discord.Interaction):
     embed = discord.Embed(title="👑 Özel Rol Başvuru Paneli", description="Aşağıdaki menüden seçim yapın ve formu doldurun.", color=discord.Color.blue())
     await interaction.channel.send(embed=embed, view=RolBasvuruView())
-    await interaction.response.send_message("Rol basvuru paneli kuruldu.", ephemeral=True)
+    await interaction.response.send_message("Rol başvuru paneli kuruldu.", ephemeral=True)
 
 @bot.tree.command(name="lock", description="Kanalı kilitle.")
 @app_commands.checks.has_permissions(manage_channels=True)
@@ -552,7 +555,7 @@ async def on_ready():
     bot.add_view(RolBasvuruView())
     bot.add_view(HizmetlerPanelView())
     await bot.tree.sync()
-    print("--- /greet Komutu ve Tüm Sistemler Aktif! ---")
+    print("--- Gelişmiş True/False Seçenekli /greet Sistemi Aktif! ---")
 
 keep_alive()
 bot.run(os.environ.get("DISCORD_TOKEN"))
