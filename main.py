@@ -1113,7 +1113,24 @@ async def on_ready():
     await bot.tree.sync()
 
     print("--- Gelişmiş True/False Seçenekli /greet Sistemi Aktif! ---")
-
+# 5. YENİ EKLEME: /ilan-ver KOMUTU
+@bot.tree.command(name="ilan-ver", description="İlan paylaşır.")
+@app_commands.describe(urun="Ürün adı", fiyat="Fiyat", aciklama="Açıklama")
+async def slash_ilan_ver(interaction: discord.Interaction, urun: str, fiyat: str, aciklama: str):
+    embed = discord.Embed(
+        title="Yeni İlan",
+        color=discord.Color.orange()
+    )
+    embed.add_field(name="İlan Sahibi", value=interaction.user.mention, inline=False)
+    embed.add_field(name="Ürün", value=urun, inline=True)
+    embed.add_field(name="Fiyat", value=fiyat, inline=True)
+    embed.add_field(name="Aciklama", value=aciklama, inline=False)
+    embed.set_footer(text=f"İlan Tarihi: {time.strftime('%d/%m/%Y')}")
+    
+    # Mesajı gönder
+    await interaction.channel.send(embed=embed)
+    await interaction.response.send_message("İlanın başarıyla paylaşıldı!", ephemeral=True)
+    
 
 
 keep_alive()
