@@ -13,7 +13,7 @@ from flask import Flask
 # === AYARLAR VE KANAL ID'LERİ ===
 BAŞVURU_LOG_KANAL_ID = 1524879141793435689
 GIRIS_CIKIS_KANAL_ID = 123456789012345678  # Giriş-Çıkış log kanal ID'si
-REKLAM_KANAL_ID = 112233445566778899      # Sunucudaki aktif reklamların yayınlandığı kanal ID'si
+REKLAM_KANAL_ID = 112233445566778899      # /greet komutunun ve reklamların gideceği kanal ID'si
 
 # === RENDER KEEPALIVE SİSTEMİ ===
 app = Flask('')
@@ -197,7 +197,6 @@ class GreetMetniButon(discord.ui.Button):
         
     async def callback(self, inter: discord.Interaction):
         greet_text = f"**🌟 YENİ BİR PARTNER / REKLAM!**\n\n📌 **Açıklama:** {self.aciklama}\n🔗 **Katılmak İçin:** {self.link}\n\n*Sunucumuza destekleri için teşekkür ederiz! @everyone*"
-        # Tırnak hatası tamamen düzeltilen satır:
         await inter.response.send_message(f"```\n{greet_text}\n```\nYukarıdaki kodu kopyalayıp Greet veya Reklam odasına atabilirsiniz.", ephemeral=True)
 
 class ReklamHizmetModal(Modal):
@@ -257,13 +256,13 @@ class ReklamPaketleriSubDropdown(Select):
             embed.description = "• **Süre:** 3 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti\n• **Greet Desteği:** ❌ Yok\n• **Çekiliş:** Çekiliş onlardan (Ödülü kendileri karşılar)"
         elif secilen == "altin":
             embed.title = "🥇 Altın Reklam Paketi - 150 TL"
-            embed.description = "• **Süre:** 5 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet (Karşılama Odasında Görünme)\n• **Greet Desteği:**  Aktif\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
+            embed.description = "• **Süre:** 5 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet (Karşılama Odasında Görünme)\n• **Greet Desteği:** Aktif\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
         elif secilen == "elmas":
             embed.title = "💎 Elmas Reklam Paketi - 300 TL"
-            embed.description = "• **Süre:** 7 Gün Sabit\n• **Etiket:** 1 Adet @everyone + 1 Adet @here\n• **Özellikler:** Özel Oda, Greet Karşılama Desteği\n• **Greet Desteği:**  Aktif\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
+            embed.description = "• **Süre:** 7 Gün Sabit\n• **Etiket:** 1 Adet @everyone + 1 Adet @here\n• **Özellikler:** Özel Oda, Greet Karşılama Desteği\n• **Greet Desteği:** Aktif\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
         elif secilen == "netherite":
             embed.title = "🔥 Netherite Reklam Paketi - 400 TL"
-            embed.description = "• **Süre:** 14 Gün Sabit\n• **Etiket:** 2 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet Karşılama Desteği\n• **Greet Desteği:**  Aktif"
+            embed.description = "• **Süre:** 14 Gün Sabit\n• **Etiket:** 2 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet Karşılama Desteği\n• **Greet Desteği:** Aktif"
 
         view = View()
         class BasvurButton(discord.ui.Button):
@@ -389,6 +388,37 @@ class RolBasvuruView(View):
         self.add_item(RolDropdown())
 
 # === 4. SLASH KOMUTLARI ===
+
+# 🆕 YENİ EKLEME: EL İLE REKLAM GÖNDERME KOMUTU (/greet)
+@bot.tree.command(name="greet", description="Belirtilen kanala @everyone etiketli el ile reklam/partner duyurusu atar.")
+@app_commands.checks.has_permissions(manage_messages=True)
+@app_commands.describe(
+    link="Reklamı yapılacak sunucunun davet linki (Örn: discord.gg/mtts)",
+    aciklama="Reklam metni veya sunucu açıklaması"
+)
+async def slash_greet(interaction: discord.Interaction, link: str, aciklama: str):
+    # Ayarlanan reklam kanalını çekiyoruz
+    hedef_kanal = interaction.guild.get_channel(REKLAM_KANAL_ID)
+    
+    if not hedef_kanal:
+        await interaction.response.send_message("❌ Reklam kanalı bulunamadı! Lütfen kodun en üstündeki REKLAM_KANAL_ID'yi kontrol edin.", ephemeral=True)
+        return
+
+    # Gönderilecek estetik şablon
+    greet_yazisi = (
+        f"**🌟 YENİ BİR PARTNER / REKLAM!**\n\n"
+        f"📌 **Açıklama:** {aciklama}\n"
+        f"🔗 **Katılmak İçin:** {link}\n\n"
+        f"*Sunucumuza destekleri için teşekkür ederiz!* \n@everyone"
+    )
+
+    # Reklam kanalına mesajı gönderiyoruz
+    await hedef_kanal.send(content=greet_yazisi)
+    
+    # Komutu kullanan yetkiliye başarılı bildirimi yapıyoruz
+    await interaction.response.send_message(f"✅ Greet reklamı başarıyla <#{REKLAM_KANAL_ID}> kanalına gönderildi!", ephemeral=True)
+
+
 @bot.tree.command(name="paketler", description="Maden temalı güncel reklam paketlerinin listesini ve fiyatlarını gösterir.")
 async def slash_paketler(interaction: discord.Interaction):
     sub_view = View()
@@ -418,11 +448,7 @@ async def slash_anket(interaction: discord.Interaction, soru: str):
 
 @bot.tree.command(name="cekilis", description="Butonlu ve anlık sayaçlı lüks çekiliş düzenler.")
 @app_commands.checks.has_permissions(manage_messages=True)
-@app_commands.describe(
-    sure="Çekiliş süresi (Örn: 30s, 10m, 2h, 6d)",
-    odul="Çekiliş ödülü nedir? (Örn: 12 Aylık MC Premium)",
-    kazanan_sayisi="Çekilişi kaç kişi kazanacak? (Varsayılan: 1)"
-)
+@app_commands.describe(sure="Çekiliş süresi (Örn: 30s, 10m, 2h, 6d)", odul="Çekiliş ödülü nedir? (Örn: 12 Aylık MC Premium)", kazanan_sayisi="Çekilişi kaç kişi kazanacak? (Varsayılan: 1)")
 async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, kazanan_sayisi: int = 1):
     saniye = parse_duration(sure)
     if saniye <= 0:
@@ -496,7 +522,7 @@ async def slash_yb_panel(interaction: discord.Interaction):
 async def slash_rol_panel(interaction: discord.Interaction):
     embed = discord.Embed(title="👑 Özel Rol Başvuru Paneli", description="Aşağıdaki menüden seçim yapın ve formu doldurun.", color=discord.Color.blue())
     await interaction.channel.send(embed=embed, view=RolBasvuruView())
-    await interaction.response.send_message("Rol başvuru paneli kuruldu.", ephemeral=True)
+    await interaction.response.send_message("Rol basvuru paneli kuruldu.", ephemeral=True)
 
 @bot.tree.command(name="lock", description="Kanalı kilitle.")
 @app_commands.checks.has_permissions(manage_channels=True)
@@ -526,7 +552,7 @@ async def on_ready():
     bot.add_view(RolBasvuruView())
     bot.add_view(HizmetlerPanelView())
     await bot.tree.sync()
-    print("--- Proje Render Uyumlu Olarak Tamamen Başlatıldı! ---")
+    print("--- /greet Komutu ve Tüm Sistemler Aktif! ---")
 
 keep_alive()
 bot.run(os.environ.get("DISCORD_TOKEN"))
