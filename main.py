@@ -12,6 +12,7 @@ from flask import Flask
 # === AYARLAR VE KANAL ID'LERİ ===
 BAŞVURU_LOG_KANAL_ID = 1524879141793435689
 GIRIS_CIKIS_KANAL_ID = 123456789012345678  # Giriş-Çıkış log kanal ID'si
+REKLAM_KANAL_ID = 112233445566778899      # Sunucudaki aktif reklamların yayınlandığı kanal ID'si
 
 # === RENDER KEEPALIVE SİSTEMİ ===
 app = Flask('')
@@ -37,34 +38,34 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # === SÜRE DÖNÜŞTÜRÜCÜ FONKSİYON ===
 def parse_duration(duration_str: str) -> int:
-    """'1s', '5m', '2h', '1d' gibi ifadeleri saniyeye çevirir."""
     match = re.match(r"(\d+)([smhd]?)", duration_str.lower().strip())
     if not match:
         return 0
     amount = int(match.group(1))
     unit = match.group(2)
     
-    if unit == 's': # Saniye
+    if unit == 's':
         return amount
-    elif unit == 'm': # Dakika
+    elif unit == 'm':
         return amount * 60
-    elif unit == 'h': # Saat
+    elif unit == 'h':
         return amount * 3600
-    elif unit == 'd': # Gün
+    elif unit == 'd':
         return amount * 86400
     else:
-        return amount # Varsayılan olarak saniye kabul edilir
+        return amount
 
-# === GİRİŞ VE ÇIKIŞ SİSTEMİ ===
+# === GİRİŞ VE ÇIKIŞ SİSTEMİ (GREET ENTEGRELİ) ===
 @bot.event
 async def on_member_join(member):
     channel = member.guild.get_channel(GIRIS_CIKIS_KANAL_ID)
     if channel:
         embed = discord.Embed(
-            description=f"{member.mention} aramıza hoş geldin! **{member.guild.member_count}** kişiyiz.",
+            description=f"{member.mention} aramıza hoş geldin! **{member.guild.member_count}** kişiyiz.\n\n"
+                        f"📢 **Partnerlikler ve Güncel Reklamlar için:** <#{REKLAM_KANAL_ID}> kanalına göz atmayı unutma!",
             color=discord.Color.from_rgb(46, 204, 113)
         )
-        embed.set_author(name="📥 Sunucuya Katıldı!")
+        embed.set_author(name="📥 Sunucuya Katıldı & Greet Bildirimi!")
         embed.set_thumbnail(url=member.display_avatar.url)
         await channel.send(embed=embed)
 
@@ -175,15 +176,32 @@ class ReklamHizmetModal(Modal):
         log_kanali = interaction.guild.get_channel(BAŞVURU_LOG_KANAL_ID)
         
         if log_kanali:
+            # Greet özelliğine sahip paketler için hazır log metni oluşturuyoruz
+            greet_durumu = "✅ Mevcut (+ Greet Karşılama)" if "Altın" in self.paket_secimi.value or "Elmas" in self.paket_secimi.value or "Netherite" in self.paket_secimi.value else "❌ Yok"
+            
             embed = discord.Embed(title="📢 Yeni Reklam / Hizmet Başvurusu!", color=discord.Color.green())
             embed.add_field(name="Kullanıcı", value=interaction.user.mention, inline=True)
             embed.add_field(name="Hizmet Grubu", value=self.hizmet_turu, inline=True)
             embed.add_field(name="Başvuran İsmi", value=self.ad.value, inline=True)
             embed.add_field(name="Seçtiği Paket/Ping", value=self.paket_secimi.value, inline=True)
+            embed.add_field(name="Greet Özelliği", value=greet_durumu, inline=True)
             embed.add_field(name="Link", value=self.link.value, inline=False)
             embed.add_field(name="Açıklama / Detay", value=self.Detay.value, inline=False)
             embed.set_footer(text="Gerekli ödeme/şart kontrollerini yapıp el ile işleme alın.")
-            await log_kanali.send(embed=embed)
+            
+            # Yetkililer için hazır Greet kopyalama butonu ekliyoruz
+            view = View()
+            class GreetMetniButon(discord.ui.Button):
+                def __init__(self, link, aciklama):
+                    super().__init__(label="Greet Yazısını Al", style=discord.ButtonStyle.secondary, emoji="📋")
+                    self.link = link
+                    self.aciklama = aciklama
+                async def callback(self, inter: discord.Interaction):
+                    greet_text = f"**🌟 YENİ BİR PARTNER / REKLAM!**\n\n📌 **Açıklama:** {self.aciklama}\n🔗 **Katılmak İçin:** {self.link}\n\n*Sunucumuza destekleri için teşekkür ederiz! @everyone*"
+                    await inter.response.send_message(f"```\n{greet_text}\n```\nYukarıdaki kodu kopyalayıp Greet veya Reklam odasına atabilirsiniz.", ephemeral=True)
+            
+            view.add_item(GreetMetniButon(link=self.link.value, aciklama=self.Detay.value))
+            await log_kanali.send(embed=embed, view=view)
             
         await interaction.followup.send("✅ Reklam başvurunuz başarıyla yetkililere iletildi!", ephemeral=True)
 
@@ -192,7 +210,7 @@ class ReklamPaketleriSubDropdown(Select):
         options = [
             discord.SelectOption(label="Demir Paket - 100 TL", value="demir", emoji="🪙", description="3 Gün | 1 Everyone | Çekiliş Onlardan"),
             discord.SelectOption(label="Altın Paket - 150 TL", value="altin", emoji="🥇", description="5 Gün | 1 Everyone | Çekiliş Bizden + Greet"),
-            discord.SelectOption(label="Elmas Paket - 300 TL", value="elmas", emoji="💎", description="7 Gün | 1 Everyone + 1 Here | Çekiliş Bizden"),
+            discord.SelectOption(label="Elmas Paket - 300 TL", value="elmas", emoji="💎", description="7 Gün | 1 Everyone + 1 Here | Çekiliş Bizden + Greet"),
             discord.SelectOption(label="Netherite Paket - 400 TL", value="netherite", emoji="🔥", description="14 Gün | 2 Everyone | Özel Oda + Greet")
         ]
         super().__init__(placeholder="İncelemek istediğiniz reklam paketini seçin", options=options, custom_id="mtts_paket_alt_dropdown")
@@ -203,16 +221,16 @@ class ReklamPaketleriSubDropdown(Select):
         
         if secilen == "demir":
             embed.title = "🪙 Demir Reklam Paketi - 100 TL"
-            embed.description = "• **Süre:** 3 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti\n• **Çekiliş:** Çekiliş onlardan (Ödülü kendileri karşılar)"
+            embed.description = "• **Süre:** 3 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti\n• **Greet Desteği:** ❌ Yok\n• **Çekiliş:** Çekiliş onlardan (Ödülü kendileri karşılar)"
         elif secilen == "altin":
             embed.title = "🥇 Altın Reklam Paketi - 150 TL"
-            embed.description = "• **Süre:** 5 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet (Karşılama)\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
+            embed.description = "• **Süre:** 5 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet (Karşılama Odasında Görünme)\n• **Greet Desteği:**  Aktif\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
         elif secilen == "elmas":
             embed.title = "💎 Elmas Reklam Paketi - 300 TL"
-            embed.description = "• **Süre:** 7 Gün Sabit\n• **Etiket:** 1 Adet @everyone + 1 Adet @here\n• **Özellikler:** Özel Oda, Greet (Karşılama)\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
+            embed.description = "• **Süre:** 7 Gün Sabit\n• **Etiket:** 1 Adet @everyone + 1 Adet @here\n• **Özellikler:** Özel Oda, Greet Karşılama Desteği\n• **Greet Desteği:**  Aktif\n• **Çekiliş:** Çekiliş bizden (Siz karşılarsınız)"
         elif secilen == "netherite":
             embed.title = "🔥 Netherite Reklam Paketi - 400 TL"
-            embed.description = "• **Süre:** 14 Gün Sabit\n• **Etiket:** 2 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet (Karşılama Desteği)"
+            embed.description = "• **Süre:** 14 Gün Sabit\n• **Etiket:** 2 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti, Greet Karşılama Desteği\n• **Greet Desteği:**  Aktif"
 
         view = View()
         class BasvurButton(discord.ui.Button):
@@ -365,54 +383,35 @@ async def slash_anket(interaction: discord.Interaction, soru: str):
     await msg.add_reaction("✅")
     await msg.add_reaction("❌")
 
-# === YENİLENMİŞ GELİŞMİŞ ÇEKİLİŞ KOMUTU ===
 @bot.tree.command(name="cekilis", description="Gelişmiş süre ve kazanan ayarlı çekiliş düzenler.")
 @app_commands.checks.has_permissions(manage_messages=True)
-@app_commands.describe(
-    sure="Çekiliş süresi (Örn: 30s, 10m, 2h, 1d)",
-    odul="Çekiliş ödülü nedir?",
-    kazanan_sayisi="Çekilişi kaç kişi kazanacak? (Varsayılan: 1)"
-)
+@app_commands.describe(sure="Çekiliş süresi (Örn: 30s, 10m, 2h, 1d)", odul="Çekiliş ödülü nedir?", kazanan_sayisi="Çekilişi kaç kişi kazanacak? (Varsayılan: 1)")
 async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, kazanan_sayisi: int = 1):
-    # Süreyi saniyeye çeviriyoruz
     saniye = parse_duration(sure)
-    
     if saniye <= 0:
         await interaction.response.send_message("❌ Geçersiz süre formatı! Lütfen `30s`, `5m`, `2h` veya `1d` şeklinde girin.", ephemeral=True)
         return
-
     if kazanan_sayisi <= 0:
         await interaction.response.send_message("❌ Kazanan sayısı en az 1 olmalıdır!", ephemeral=True)
         return
 
-    embed = discord.Embed(
-        title="🎉 ÇEKİLİŞ BAŞLADI! 🎉", 
-        description=f"**Ödül:** {odul}\n**Süre:** {sure}\n**Kazanan Sayısı:** {kazanan_sayisi} Kişi\n\nKatılmak için 🎉 tepkisine tıklayın!", 
-        color=discord.Color.gold()
-    )
+    embed = discord.Embed(title="🎉 ÇEKİLİŞ BAŞLADI! 🎉", description=f"**Ödül:** {odul}\n**Süre:** {sure}\n**Kazanan Sayısı:** {kazanan_sayisi} Kişi\n\nKatılmak için 🎉 tepkisine tıklayın!", color=discord.Color.gold())
     embed.set_footer(text=f"Başlatan: {interaction.user.name}")
     
     await interaction.response.send_message("Çekiliş başarıyla başlatıldı.", ephemeral=True)
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("🎉")
     
-    # Belirtilen süre kadar bekletiyoruz
     await asyncio.sleep(saniye)
     
-    # Mesajı ve reaksiyonları güncel olarak çekiyoruz
     msg = await interaction.channel.fetch_message(msg.id)
     reaction = discord.utils.get(msg.reactions, emoji="🎉")
-    
-    # Botları hariç tutarak kullanıcı listesini alıyoruz
     users = [user async for user in reaction.users() if not user.bot]
     
     if users:
-        # Eğer katılan kişi sayısı istenen kazanan sayısından azsa, katılan herkesi kazanan ilan et veya mevcut sayı kadar seç
         gercek_kazanan_sayisi = min(kazanan_sayisi, len(users))
         kazananlar = random.sample(users, k=gercek_kazanan_sayisi)
-        
         kazanan_mentionlar = ", ".join([k.mention for k in kazananlar])
-        
         await interaction.channel.send(f"🎉 Tebrikler {kazanan_mentionlar}! **{odul}** çekilişini kazandınız!")
     else:
         await interaction.channel.send(f"❌ **{odul}** çekilişine yeterli katılım olmadığı için kazanan seçilemedi.")
