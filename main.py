@@ -16,8 +16,8 @@ BAŞVURU_LOG_KANAL_ID = 1524879141793435689
 GIRIS_CIKIS_KANAL_ID = 123456789012345678  # Giriş-Çıkış log kanal ID'si
 REKLAM_KANAL_ID = 112233445566778899      # Reklamların gideceği kanal ID'si
 YETKILI_ROL_ID = 987654321098765432        # Başvuru onaylanınca verilecek Yetkili Rol ID'si
-ILAN_VER_ROL_ID = 1524866585637031958      # /ilan-ver komutunu kullanabilecek Özel Rol ID'si
-ILAN_KANAL_ID = 1524866586912227330       # /ilan-ver komutunun çalışacağı TEK KANAL ID'si
+ILAN_VER_ROL_ID = 1524866585637031958      # !ilan-ver komutunu kullanabilecek Özel Rol ID'si
+ILAN_KANAL_ID = 1524866586912227330       # !ilan-ver komutunun çalışacağı TEK KANAL ID'si
 
 # === RENDER KEEPALIVE SİSTEMİ ===
 app = Flask('')
@@ -451,7 +451,7 @@ class RolTalepModal(Modal):
         if log_kanali:
             embed = discord.Embed(title="Yeni Özel Rol Talebi!", color=discord.Color.purple())
             embed.add_field(name="Kullanıcı", value=interaction.user.mention, inline=True)
-            embed.add_field(name="İstenen Rol", value=self.rol_label, inline=True)
+            embed.add_field(name="İtenen Rol", value=self.rol_label, inline=True)
             embed.add_field(name="İsim", value=self.ad.value, inline=True)
             embed.add_field(name="Sunucu", value=self.sunucu_adi.value, inline=True)
             embed.add_field(name="Link", value=self.sunucu_link.value, inline=False)
@@ -599,39 +599,6 @@ async def slash_sil(interaction: discord.Interaction, miktar: int):
     silinen = await interaction.channel.purge(limit=miktar)
     await interaction.followup.send(f"✅ {len(silinen)} adet mesaj silindi.", ephemeral=True)
 
-# === DISCORD İZİNLERİNİ BYPASS EDEN KESİN ÇÖZÜM KODU ===
-@bot.tree.command(name="ilan-ver", description="İlan paylaşır.")
-async def slash_ilan_ver(interaction: discord.Interaction, urun: str, fiyat: str, aciklama: str):
-    # 1. KANAL KONTROLÜ (Doğrudan kod seviyesinde)
-    if interaction.channel_id != ILAN_KANAL_ID:
-        await interaction.response.send_message(
-            f"❌ Bu komutu sadece <#{ILAN_KANAL_ID}> kanalında kullanabilirsiniz!", 
-            ephemeral=True
-        )
-        return
-
-    # 2. ROL KONTROLÜ (Eğer İlan Verici rolü veya Yönetici değilse engeller)
-    hedef_rol = interaction.guild.get_role(ILAN_VER_ROL_ID)
-    is_admin = interaction.user.guild_permissions.administrator
-    has_role = hedef_rol in interaction.user.roles if hedef_rol else False
-
-    if not has_role and not is_admin:
-        await interaction.response.send_message(
-            f"❌ Bu komutu kullanabilmek için {hedef_rol.mention if hedef_rol else 'gerekli'} rolüne sahip olmalısınız!", 
-            ephemeral=True
-        )
-        return
-
-    # 3. İLAN PAYLAŞMA İŞLEMİ
-    embed = discord.Embed(title="🛒 Yeni İlan Verildi!", color=discord.Color.gold())
-    embed.add_field(name="📦 Ürün / Hizmet", value=urun, inline=False)
-    embed.add_field(name="💰 Fiyat", value=f"**{fiyat}**", inline=True)
-    embed.add_field(name="👤 Satan", value=interaction.user.mention, inline=True)
-    embed.add_field(name="📝 Açıklama", value=aciklama, inline=False)
-    
-    await interaction.channel.send(embed=embed)
-    await interaction.response.send_message("✅ İlanınız paylaşıldı.", ephemeral=True)
-
 @bot.tree.command(name="mesaj", description="Özel bir embed mesajı gönderir.")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def slash_mesaj(interaction: discord.Interaction, baslik: str, icerik: str):
@@ -641,6 +608,46 @@ async def slash_mesaj(interaction: discord.Interaction, baslik: str, icerik: str
     await interaction.response.send_message("✅ Mesaj gönderiliyor...", ephemeral=True)
     mesaj = await interaction.channel.send(embed=embed)
     await mesaj.add_reaction("💎")
+
+# === DISCORD ENGELİNİ %100 YIKAN NORMAL MESAJ KOMUTU ===
+@bot.command(name="ilan-ver")
+async def msg_ilan_ver(ctx, urun: str = None, fiyat: str = None, *, aciklama: str = None):
+    # 1. KANAL KONTROLÜ
+    if ctx.channel.id != ILAN_KANAL_ID:
+        await ctx.message.delete()
+        await ctx.author.send(f"❌ Bu komutu sadece <#{ILAN_KANAL_ID}> kanalında kullanabilirsin!")
+        return
+
+    # 2. ROL KONTROLÜ
+    hedef_rol = ctx.guild.get_role(ILAN_VER_ROL_ID)
+    is_admin = ctx.author.guild_permissions.administrator
+    has_role = hedef_rol in ctx.author.roles if hedef_rol else False
+
+    if not has_role and not is_admin:
+        await ctx.message.delete()
+        await ctx.author.send(f"❌ Bu komutu kullanabilmek için gerekli role sahip değilsin!")
+        return
+
+    # 3. PARAMETRE KONTROLÜ
+    if not urun or not fiyat or not aciklama:
+        await ctx.message.delete()
+        await ctx.author.send(
+            "❌ **Hatalı Kullanım!**\n"
+            "Lütfen şu formatta yaz: `!ilan-ver \"Ürün Adı\" \"Fiyatı\" Açıklama` \n\n"
+            "**Örnek:** `!ilan-ver \"Minecraft Texture Pack\" \"150 TL\" Çok kaliteli 1.20 uyumlu paket.`"
+        )
+        return
+
+    # 4. İLAN PAYLAŞMA İŞLEMİ
+    await ctx.message.delete()
+    
+    embed = discord.Embed(title="🛒 Yeni İlan Verildi!", color=discord.Color.gold())
+    embed.add_field(name="📦 Ürün / Hizmet", value=urun, inline=False)
+    embed.add_field(name="💰 Fiyat", value=f"**{fiyat}**", inline=True)
+    embed.add_field(name="👤 Satan", value=ctx.author.mention, inline=True)
+    embed.add_field(name="📝 Açıklama", value=aciklama, inline=False)
+    
+    await ctx.send(embed=embed)
 
 # === BOTU ÇALIŞTIRMA ===
 keep_alive()
