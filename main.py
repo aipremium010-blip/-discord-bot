@@ -589,4 +589,17 @@ async def slash_sil(interaction: discord.Interaction, miktar: int):
     silinen = await interaction.channel.purge(limit=miktar)
     await interaction.followup.send(f"✅ {len(silinen)} adet mesaj silindi.", ephemeral=True)
 
-# Not: Eksik kalan token çalıştırma veya keep_alive() çağrılarını kendi ana yapına göre son satıra ekleyebilirsin.
+# Not: Eksik kalan token çalıştırma veya keep_alive() çağrılarını kendi ana yapına göre son satıra ekleyebilirsin.# === KODUN EN SONUNA EKLE ===
+
+if __name__ == "__main__":
+    # Önce web sunucusunu (Flask) arka planda başlatıyoruz
+    keep_alive()
+    
+    # Ardından Discord botunu kendi tokenın ile başlatıyorsun
+    # Token'ı Render Environment Variables (Çevre Değişkenleri) kısmına eklemen en güvenlisidir.
+    token = os.environ.get("DISCORD_TOKEN") 
+    
+    if token:
+        bot.run(token)
+    else:
+        print("❌ HATA: DISCORD_TOKEN bulunamadı! Lütfen Render panelinden Environment Variables kısmına ekleyin.")
