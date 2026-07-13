@@ -183,7 +183,7 @@ class CekilisButonView(View):
         )
         await interaction.message.edit(embed=embed, view=self)
 
-# === 1. GÜNCEL DESTEK SİSTEMİ ===
+# === 1. DESTEK SİSTEMİ ===
 class DestekKanalIciView(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -225,7 +225,6 @@ class DestekSorunuModal(Modal):
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
         
-        # İlan Verici Rolü kanalı görebilsin ve yazabilsin
         if ilan_verici_rol:
             overwrites[ilan_verici_rol] = discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True)
 
@@ -543,7 +542,6 @@ async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, 
         iptal_embed = discord.Embed(title=f"❌ {odul} Çekilişi İptal Edildi", description="Katılım olmadı.", color=discord.Color.purple())
         await msg.edit(embed=iptal_embed, view=cekilis_view)
 
-# GÖRSELDEKİ BİREBİR YENİ DESTEK PANELİ KOMUTU
 @bot.tree.command(name="destek-panel", description="Görseldeki formatta kurallı lüks Destek panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_destek_panel(interaction: discord.Interaction):
@@ -558,7 +556,7 @@ async def slash_destek_panel(interaction: discord.Interaction):
             "**- Uygun kanal seçildikten sonra destek ekibi bilgilendirilecektir.**\n\n"
             f"Bir kategori seçerek destek talebi açabilirsiniz. - {su_an}"
         ),
-        color=discord.Color.from_rgb(46, 204, 113) # Görseldeki yeşil tonu
+        color=discord.Color.from_rgb(46, 204, 113)
     )
     
     if interaction.guild.icon:
@@ -600,7 +598,9 @@ async def slash_sil(interaction: discord.Interaction, miktar: int):
     silinen = await interaction.channel.purge(limit=miktar)
     await interaction.followup.send(f"✅ {len(silinen)} adet mesaj silindi.", ephemeral=True)
 
+# === DÜZELTİLEN VE HERKESE AÇIK HALE GETİRİLEN İLAN VER KOMUTU ===
 @bot.tree.command(name="ilan-ver", description="İlan paylaşır.")
+@app_commands.default_permissions(use_application_commands=True) # Discord'un menüde gizlemesini zorunlu olarak kaldırır
 async def slash_ilan_ver(interaction: discord.Interaction, urun: str, fiyat: str, aciklama: str):
     hedef_rol = interaction.guild.get_role(ILAN_VER_ROL_ID)
     if hedef_rol not in interaction.user.roles and not interaction.user.guild_permissions.administrator:
