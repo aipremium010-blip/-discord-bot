@@ -51,7 +51,7 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Komutlar senkronize edilirken hata oluştu: {e}")
 
-# === SÜRE DÖNÜŞTÜRÜCÜ FONKSİYON ===
+# === SÜRE DÖNÜŞTÜRÜCÜ FONKSiyon ===
 def parse_duration(duration_str: str) -> int:
     match = re.match(r"(\d+)([smhd]?)", duration_str.lower().strip())
     if not match:
@@ -109,11 +109,6 @@ class GenelBasvuruIncelemeView(View):
         kullanici_mentions = embed.fields[0].value
         kullanici_id = int(re.search(r'\d+', kullanici_mentions).group())
         uye = interaction.guild.get_member(kullanici_id)
-
-        if self.tur == "Özel Rol" and "İlan Verici" in embed.fields[1].value:
-            rol = interaction.guild.get_role(ILAN_VER_ROL_ID)
-            if uye and rol:
-                await uye.add_roles(rol)
 
         embed.color = discord.Color.green()
         embed.title = f"✅ {self.tur} Başvurusu Kabul Edildi!"
@@ -199,12 +194,12 @@ class DestekKanalIciView(View):
     @discord.ui.button(label="Aktif Yetkililer", style=discord.ButtonStyle.primary, emoji="👤", custom_id="ticket_aktif_yetkililer")
     async def aktif_yetkililer(self, interaction: discord.Interaction, button: discord.Button):
         online_staff = [m.mention for m in interaction.guild.members if not m.bot and (m.guild_permissions.manage_messages or interaction.guild.get_role(ILAN_VER_ROL_ID) in m.roles) and m.status != discord.Status.offline]
-        mentions = ", ".join(online_staff[:5]) if online_staff else "Şu an aktif yetkili/ilan verici bulunamadı."
-        await interaction.response.send_message(f"🔔 **Aktif Ekip Bilgilendirildi:** {mentions}", ephemeral=True)
+        text_mentions = ", ".join(online_staff[:5]) if online_staff else "Şu an aktif yetkili bulunamadı."
+        await interaction.response.send_message(f"🔔 **Aktif Ekip Bilgilendirildi:** {text_mentions}", ephemeral=True)
 
     @discord.ui.button(label="Yardım Al", style=discord.ButtonStyle.success, emoji="🆘", custom_id="ticket_yardim_al")
     async def yardim_al(self, interaction: discord.Interaction, button: discord.Button):
-        await interaction.response.send_message("🚨 Destek ekibine ve İlan Verici yöneticilerine acil çağrı gönderildi!", ephemeral=False)
+        await interaction.response.send_message("🚨 Destek ekibine acil çağrı gönderildi!", ephemeral=False)
 
 class DestekSorunuModal(Modal):
     def __init__(self, kategori: str):
@@ -218,19 +213,14 @@ class DestekSorunuModal(Modal):
         guild = interaction.guild
         member = interaction.user
         
-        ilan_verici_rol = guild.get_role(ILAN_VER_ROL_ID)
-        
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             member: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
         
-        if ilan_verici_rol:
-            overwrites[ilan_verici_rol] = discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True)
-
         for role in guild.roles:
-            if role.permissions.administrator:
+            if role.permissions.administrator or role.id == YETKILI_ROL_ID:
                 overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
 
         kanal_adi = f"{self.kategori}-{member.name}".lower()
@@ -242,7 +232,7 @@ class DestekSorunuModal(Modal):
         embed.add_field(name="👤 Kullanıcı", value=f"{member.name}", inline=True)
         embed.add_field(name="🆔 Kullanıcı ID", value=f"{member.id}", inline=True)
         
-        await ticket_channel.send(content=f"{member.mention}, destek talebiniz açıldı. Yetkililerimiz ve İlan Verici ekibimiz sizinle en kısa sürede ilgilenecektir.", embed=embed, view=DestekKanalIciView())
+        await ticket_channel.send(content=f"{member.mention}, destek talebiniz açıldı. Yetkililerimiz sizinle en kısa sürede ilgilenecektir.", embed=embed, view=DestekKanalIciView())
         await interaction.followup.send(f"✅ Destek talebiniz açıldı: {ticket_channel.mention}", ephemeral=True)
 
 class DestekDropdown(Select):
@@ -451,7 +441,7 @@ class RolTalepModal(Modal):
         if log_kanali:
             embed = discord.Embed(title="Yeni Özel Rol Talebi!", color=discord.Color.purple())
             embed.add_field(name="Kullanıcı", value=interaction.user.mention, inline=True)
-            embed.add_field(name="İtenen Rol", value=self.rol_label, inline=True)
+            embed.add_field(name="İstenen Rol", value=self.rol_label, inline=True)
             embed.add_field(name="İsim", value=self.ad.value, inline=True)
             embed.add_field(name="Sunucu", value=self.sunucu_adi.value, inline=True)
             embed.add_field(name="Link", value=self.sunucu_link.value, inline=False)
@@ -465,16 +455,16 @@ class RolDropdown(Select):
             discord.SelectOption(label="Sunucu Sahibi", value="sunucu", emoji="👑"),
             discord.SelectOption(label="Klan Sahibi", value="klan", emoji="⚔️"),
             discord.SelectOption(label="Hosting Sahibi", value="hosting", emoji="🖥️"),
-            discord.SelectOption(label="İçerik Üreticisi", value="icerik", emoji="🎥"),
-            discord.SelectOption(label="İlan Verici", value="ilan_verici", emoji="📢")
+            discord.SelectOption(label="Takım Sahibi", value="takim", emoji="🛡️") # İstediğin gibi yeni Takım Sahibi eklendi
         ]
         super().__init__(placeholder="Talep etmek istediğiniz rolü seçin", options=options, custom_id="rol_talep_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
         rol_isimleri = {
-            "sunucu": "Sunucu Sahibi", "klan": "Klan Sahibi", 
-            "hosting": "Hosting Sahibi", "icerik": "İçerik Üreticisi",
-            "ilan_verici": "İlan Verici"
+            "sunucu": "Sunucu Sahibi", 
+            "klan": "Klan Sahibi", 
+            "hosting": "Hosting Sahibi", 
+            "takim": "Takım Sahibi" # İçerik ve İlan verici temizlendi, Takım Sahibi eklendi
         }
         await interaction.response.send_modal(RolTalepModal(rol_label=rol_isimleri[self.values[0]]))
 
@@ -599,61 +589,4 @@ async def slash_sil(interaction: discord.Interaction, miktar: int):
     silinen = await interaction.channel.purge(limit=miktar)
     await interaction.followup.send(f"✅ {len(silinen)} adet mesaj silindi.", ephemeral=True)
 
-@bot.tree.command(name="mesaj", description="Özel bir embed mesajı gönderir.")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def slash_mesaj(interaction: discord.Interaction, baslik: str, icerik: str):
-    su_an = datetime.now().strftime("%d.%m.%Y %H:%M")
-    embed = discord.Embed(title=baslik, description=f"**{icerik}**", color=discord.Color.blue())
-    embed.set_footer(text=f"Gönderen: {interaction.user.name} • {su_an}")
-    await interaction.response.send_message("✅ Mesaj gönderiliyor...", ephemeral=True)
-    mesaj = await interaction.channel.send(embed=embed)
-    await mesaj.add_reaction("💎")
-
-# === DISCORD ENGELİNİ %100 YIKAN NORMAL MESAJ KOMUTU ===
-@bot.command(name="ilan-ver")
-async def msg_ilan_ver(ctx, urun: str = None, fiyat: str = None, *, aciklama: str = None):
-    # 1. KANAL KONTROLÜ
-    if ctx.channel.id != ILAN_KANAL_ID:
-        await ctx.message.delete()
-        await ctx.author.send(f"❌ Bu komutu sadece <#{ILAN_KANAL_ID}> kanalında kullanabilirsin!")
-        return
-
-    # 2. ROL KONTROLÜ
-    hedef_rol = ctx.guild.get_role(ILAN_VER_ROL_ID)
-    is_admin = ctx.author.guild_permissions.administrator
-    has_role = hedef_rol in ctx.author.roles if hedef_rol else False
-
-    if not has_role and not is_admin:
-        await ctx.message.delete()
-        await ctx.author.send(f"❌ Bu komutu kullanabilmek için gerekli role sahip değilsin!")
-        return
-
-    # 3. PARAMETRE KONTROLÜ
-    if not urun or not fiyat or not aciklama:
-        await ctx.message.delete()
-        await ctx.author.send(
-            "❌ **Hatalı Kullanım!**\n"
-            "Lütfen şu formatta yaz: `!ilan-ver \"Ürün Adı\" \"Fiyatı\" Açıklama` \n\n"
-            "**Örnek:** `!ilan-ver \"Minecraft Texture Pack\" \"150 TL\" Çok kaliteli 1.20 uyumlu paket.`"
-        )
-        return
-
-    # 4. İLAN PAYLAŞMA İŞLEMİ
-    await ctx.message.delete()
-    
-    embed = discord.Embed(title="🛒 Yeni İlan Verildi!", color=discord.Color.gold())
-    embed.add_field(name="📦 Ürün / Hizmet", value=urun, inline=False)
-    embed.add_field(name="💰 Fiyat", value=f"**{fiyat}**", inline=True)
-    embed.add_field(name="👤 Satan", value=ctx.author.mention, inline=True)
-    embed.add_field(name="📝 Açıklama", value=aciklama, inline=False)
-    
-    await ctx.send(embed=embed)
-
-# === BOTU ÇALIŞTIRMA ===
-keep_alive()
-
-TOKEN = os.environ.get("DISCORD_TOKEN")
-if TOKEN:
-    bot.run(TOKEN)
-else:
-    print("❌ HATA: DISCORD_TOKEN bulunamadı!")
+# Not: Eksik kalan token çalıştırma veya keep_alive() çağrılarını kendi ana yapına göre son satıra ekleyebilirsin.
