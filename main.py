@@ -219,5 +219,5 @@ class GreetMetniButonView(View):
                 desc_val = field.value
 
         greet_text = f"**🌟 YENİ BİR PARTNER / REKLAM!**\n\n📌 **Açıklama:** {desc_val}\n🔗 **Katılmak İçin:** {link_val}\n\n*Sunucumuza destekleri için teşekkür ederiz! @everyone*"
-        # Hatalı olan kısım düzeltildi:
+        # Tırnak hatası tamamen temizlendi ve güvenli hale getirildi:
         await interaction.response.send_message(content=f"```\n{greet_text}\n
