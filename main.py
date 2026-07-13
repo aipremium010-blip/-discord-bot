@@ -16,7 +16,7 @@ BAŞVURU_LOG_KANAL_ID = 1524879141793435689
 GIRIS_CIKIS_KANAL_ID = 123456789012345678  # Giriş-Çıkış log kanal ID'si
 REKLAM_KANAL_ID = 112233445566778899      # Reklamların gideceği kanal ID'si
 YETKILI_ROL_ID = 987654321098765432        # Başvuru onaylanınca verilecek Yetkili Rol ID'si
-ILAN_VER_ROL_ID = 1524866585637031958      # /ilan-ver komutunu kullanabilecek özel rol ID'si
+ILAN_VER_ROL_ID = 1524866585637031958      # /ilan-ver komutunu kullanabilecek ve ticketları görecek Özel Rol ID'si
 
 # === RENDER KEEPALIVE SİSTEMİ ===
 app = Flask('')
@@ -90,23 +90,25 @@ async def on_member_remove(member):
         embed.set_thumbnail(url=member.display_avatar.url)
         await channel.send(embed=embed)
 
-# === ORTAK BAŞVURU INCELEME BUTONLARI (REKLAM VE ROL İÇİN) ===
+# === ORTAK BAŞVURU INCELEME BUTONLARI ===
 class GenelBasvuruIncelemeView(View):
     def __init__(self, tur: str):
         super().__init__(timeout=None)
-        self.tur = tur # "Reklam" veya "Özel Rol"
+        self.tur = tur
 
     @discord.ui.button(label="Onayla", style=discord.ButtonStyle.success, custom_id="genel_onay_btn")
     async def onay(self, interaction: discord.Interaction, button: discord.Button):
+        if not interaction.user.guild_permissions.administrator and not interaction.guild.get_role(YETKILI_ROL_ID) in interaction.user.roles:
+            await interaction.response.send_message("❌ Bu başvuruyu incelemek için gerekli yetkiniz bulunmamaktadır!", ephemeral=True)
+            return
+
         await interaction.response.defer(ephemeral=True)
         embed = interaction.message.embeds[0]
         
-        # Kullanıcıyı embed içindeki field'dan çekiyoruz
         kullanici_mentions = embed.fields[0].value
         kullanici_id = int(re.search(r'\d+', kullanici_mentions).group())
         uye = interaction.guild.get_member(kullanici_id)
 
-        # Eğer rol başvurusuysa ve Rol ID'si tanımlıysa otomatik rolü de verebiliriz
         if self.tur == "Özel Rol" and "İlan Verici" in embed.fields[1].value:
             rol = interaction.guild.get_role(ILAN_VER_ROL_ID)
             if uye and rol:
@@ -115,7 +117,6 @@ class GenelBasvuruIncelemeView(View):
         embed.color = discord.Color.green()
         embed.title = f"✅ {self.tur} Başvurusu Kabul Edildi!"
         
-        # Butonları devre dışı bırak/temizle
         self.clear_items()
         await interaction.message.edit(embed=embed, view=self)
         await interaction.followup.send(f"✅ Başvuru başarıyla onaylandı.", ephemeral=True)
@@ -127,6 +128,10 @@ class GenelBasvuruIncelemeView(View):
 
     @discord.ui.button(label="Reddet", style=discord.ButtonStyle.danger, custom_id="genel_red_btn")
     async def reddet(self, interaction: discord.Interaction, button: discord.Button):
+        if not interaction.user.guild_permissions.administrator and not interaction.guild.get_role(YETKILI_ROL_ID) in interaction.user.roles:
+            await interaction.response.send_message("❌ Bu başvuruyu incelemek için gerekli yetkiniz bulunmamaktadır!", ephemeral=True)
+            return
+
         await interaction.response.defer(ephemeral=True)
         embed = interaction.message.embeds[0]
         
@@ -178,7 +183,7 @@ class CekilisButonView(View):
         )
         await interaction.message.edit(embed=embed, view=self)
 
-# === 1. DESTEK SİSTEMİ ===
+# === 1. GÜNCEL DESTEK SİSTEMİ ===
 class DestekKanalIciView(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -192,13 +197,13 @@ class DestekKanalIciView(View):
 
     @discord.ui.button(label="Aktif Yetkililer", style=discord.ButtonStyle.primary, emoji="👤", custom_id="ticket_aktif_yetkililer")
     async def aktif_yetkililer(self, interaction: discord.Interaction, button: discord.Button):
-        online_staff = [m.mention for m in interaction.guild.members if not m.bot and m.guild_permissions.manage_messages and m.status != discord.Status.offline]
-        mentions = ", ".join(online_staff[:5]) if online_staff else "Şu an aktif yetkili bulunamadı."
-        await interaction.response.send_message(f"🔔 **Aktif Yetkililer Bilgilendirildi:** {mentions}", ephemeral=True)
+        online_staff = [m.mention for m in interaction.guild.members if not m.bot and (m.guild_permissions.manage_messages or interaction.guild.get_role(ILAN_VER_ROL_ID) in m.roles) and m.status != discord.Status.offline]
+        mentions = ", ".join(online_staff[:5]) if online_staff else "Şu an aktif yetkili/ilan verici bulunamadı."
+        await interaction.response.send_message(f"🔔 **Aktif Ekip Bilgilendirildi:** {mentions}", ephemeral=True)
 
     @discord.ui.button(label="Yardım Al", style=discord.ButtonStyle.success, emoji="🆘", custom_id="ticket_yardim_al")
     async def yardim_al(self, interaction: discord.Interaction, button: discord.Button):
-        await interaction.response.send_message("🚨 Destek ekibine acil çağrı gönderildi! En kısa sürede odaklanacaklar.", ephemeral=False)
+        await interaction.response.send_message("🚨 Destek ekibine ve İlan Verici yöneticilerine acil çağrı gönderildi!", ephemeral=False)
 
 class DestekSorunuModal(Modal):
     def __init__(self, kategori: str):
@@ -212,11 +217,18 @@ class DestekSorunuModal(Modal):
         guild = interaction.guild
         member = interaction.user
         
+        ilan_verici_rol = guild.get_role(ILAN_VER_ROL_ID)
+        
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             member: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
+        
+        # İlan Verici Rolü kanalı görebilsin ve yazabilsin
+        if ilan_verici_rol:
+            overwrites[ilan_verici_rol] = discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True)
+
         for role in guild.roles:
             if role.permissions.administrator:
                 overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
@@ -224,13 +236,13 @@ class DestekSorunuModal(Modal):
         kanal_adi = f"{self.kategori}-{member.name}".lower()
         ticket_channel = await guild.create_text_channel(name=kanal_adi, overwrites=overwrites)
         
-        embed = discord.Embed(title="📋 Destek Talebi", color=discord.Color.from_rgb(41, 128, 185))
+        embed = discord.Embed(title="📋 Destek Talebi", color=discord.Color.from_rgb(46, 204, 113))
         embed.add_field(name="📌 Konu", value=self.sorun.value, inline=False)
         embed.add_field(name="📁 Kategori", value=self.kategori, inline=True)
         embed.add_field(name="👤 Kullanıcı", value=f"{member.name}", inline=True)
         embed.add_field(name="🆔 Kullanıcı ID", value=f"{member.id}", inline=True)
         
-        await ticket_channel.send(content=f"{member.mention}, destek talebiniz açıldı.", embed=embed, view=DestekKanalIciView())
+        await ticket_channel.send(content=f"{member.mention}, destek talebiniz açıldı. Yetkililerimiz ve İlan Verici ekibimiz sizinle en kısa sürede ilgilenecektir.", embed=embed, view=DestekKanalIciView())
         await interaction.followup.send(f"✅ Destek talebiniz açıldı: {ticket_channel.mention}", ephemeral=True)
 
 class DestekDropdown(Select):
@@ -239,7 +251,7 @@ class DestekDropdown(Select):
             discord.SelectOption(label="Partnerlik", value="partnerlik", emoji="📄"),
             discord.SelectOption(label="Şikayet", value="sikayet", emoji="🚨"),
             discord.SelectOption(label="Yetkili Başvurusu", value="yetkili", emoji="📁"),
-            discord.SelectOption(label="Reklam", value="reklam", emoji="💵"),
+            discord.SelectOption(label="Reklam / İlan İşlemleri", value="reklam_ilan", emoji="💵"),
             discord.SelectOption(label="Genel", value="genel", emoji="📜")
         ]
         super().__init__(placeholder="📌 Bir destek kategorisi seçin", min_values=1, max_values=1, options=options, custom_id="destek_ana_dropdown")
@@ -259,8 +271,8 @@ class ReklamHizmetModal(Modal):
         self.hizmet_turu = hizmet_turu
 
         self.ad = TextInput(label="İsminiz", placeholder="Lütfen adınızı girin...", required=True)
-        self.paket_secimi = TextInput(label="Seçtiğiniz Paket / Ping Türü", default=detaylar, placeholder="Örn: Demir Paket / Everyone Ping vb.", required=True)
-        self.Detay = TextInput(label="Sunucu / Hizmet Detayı", placeholder="Reklamı yapılacak içerik veya detaylar...", style=discord.TextStyle.paragraph, required=True)
+        self.paket_secimi = TextInput(label="Seçtiğiniz Paket / Ping Türü", default=detaylar, placeholder="Örn: Demir Paket vb.", required=True)
+        self.Detay = TextInput(label="Sunucu / Hizmet Detayı", placeholder="Detaylar...", style=discord.TextStyle.paragraph, required=True)
         self.link = TextInput(label="Yönlendirilecek Link", placeholder="discord.gg/...", required=True)
 
         self.add_item(self.ad)
@@ -280,9 +292,7 @@ class ReklamHizmetModal(Modal):
             embed.add_field(name="Seçtiği Paket/Ping", value=self.paket_secimi.value, inline=True)
             embed.add_field(name="Link", value=self.link.value, inline=False)
             embed.add_field(name="Açıklama / Detay", value=self.Detay.value, inline=False)
-            embed.set_footer(text="Gerekli ödeme/şart kontrollerini yapıp onaylayın veya reddedin.")
             
-            # Reklam başvurularına onay/ret butonlarını bağlıyoruz
             await log_kanali.send(embed=embed, view=GenelBasvuruIncelemeView(tur="Reklam"))
             
         await interaction.followup.send("✅ Reklam başvurunuz başarıyla yetkililere iletildi!", ephemeral=True)
@@ -290,10 +300,10 @@ class ReklamHizmetModal(Modal):
 class ReklamPaketleriSubDropdown(Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Demir Paket - 100 TL", value="demir", emoji="🪙", description="3 Gün | 1 Everyone | Çekiliş Onlardan"),
-            discord.SelectOption(label="Altın Paket - 150 TL", value="altin", emoji="🥇", description="5 Gün | 1 Everyone | Çekiliş Bizden"),
-            discord.SelectOption(label="Elmas Paket - 300 TL", value="elmas", emoji="💎", description="7 Gün | 1 Everyone + 1 Here | Çekiliş Bizden"),
-            discord.SelectOption(label="Netherite Paket - 400 TL", value="netherite", emoji="🔥", description="14 Gün | 2 Everyone | Özel Oda")
+            discord.SelectOption(label="Demir Paket - 100 TL", value="demir", emoji="🪙"),
+            discord.SelectOption(label="Altın Paket - 150 TL", value="altin", emoji="🥇"),
+            discord.SelectOption(label="Elmas Paket - 300 TL", value="elmas", emoji="💎"),
+            discord.SelectOption(label="Netherite Paket - 400 TL", value="netherite", emoji="🔥")
         ]
         super().__init__(placeholder="İncelemek istediğiniz reklam paketini seçin", options=options, custom_id="mtts_paket_alt_dropdown")
 
@@ -303,21 +313,21 @@ class ReklamPaketleriSubDropdown(Select):
         
         if secilen == "demir":
             embed.title = "🪙 Demir Reklam Paketi - 100 TL"
-            embed.description = "• **Süre:** 3 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti\n• **Çekiliş:** Çekiliş onlardan"
+            embed.description = "• **Süre:** 3 Gün\n• **Etiket:** 1 @everyone\n• **Çekiliş:** Onlardan"
         elif secilen == "altin":
             embed.title = "🥇 Altın Reklam Paketi - 150 TL"
-            embed.description = "• **Süre:** 5 Gün Sabit\n• **Etiket:** 1 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti\n• **Çekiliş:** Çekiliş bizden"
+            embed.description = "• **Süre:** 5 Gün\n• **Etiket:** 1 @everyone\n• **Çekiliş:** Bizden"
         elif secilen == "elmas":
             embed.title = "💎 Elmas Reklam Paketi - 300 TL"
-            embed.description = "• **Süre:** 7 Gün Sabit\n• **Etiket:** 1 Adet @everyone + 1 Adet @here\n• **Özellikler:** Özel Oda\n• **Çekiliş:** Çekiliş bizden"
+            embed.description = "• **Süre:** 7 Gün\n• **Etiket:** 1 @everyone + 1 @here"
         elif secilen == "netherite":
             embed.title = "🔥 Netherite Reklam Paketi - 400 TL"
-            embed.description = "• **Süre:** 14 Gün Sabit\n• **Etiket:** 2 Adet @everyone\n• **Özellikler:** Özel Oda, Reklam Texti"
+            embed.description = "• **Süre:** 14 Gün\n• **Etiket:** 2 @everyone"
 
         view = View()
         class BasvurButton(discord.ui.Button):
             def __init__(self, paket_adi):
-                super().__init__(label=f"{paket_adi} Satın Al / Başvur", style=discord.ButtonStyle.success, emoji="💳")
+                super().__init__(label=f"{paket_adi} Satın Al", style=discord.ButtonStyle.success, emoji="💳")
                 self.paket_adi = paket_adi
             async def callback(self, inter: discord.Interaction):
                 await inter.response.send_modal(ReklamHizmetModal(hizmet_turu="MTTS Reklam Paketleri", detaylar=self.paket_adi))
@@ -337,7 +347,7 @@ class HizmetlerDropdown(Select):
         if self.values[0] == "MTTS Reklam Paketleri":
             sub_view = View()
             sub_view.add_item(ReklamPaketleriSubDropdown())
-            await interaction.response.send_message("🔎 Detaylarını görmek istediğiniz maden paketini seçin:", view=sub_view, ephemeral=True)
+            await interaction.response.send_message("🔎 Detaylarını görmek istediğiniz paketi seçin:", view=sub_view, ephemeral=True)
         else:
             await interaction.response.send_modal(ReklamHizmetModal(hizmet_turu=self.values[0]))
 
@@ -354,8 +364,11 @@ class YetkiliBasvuruIncelemeView(View):
 
     @discord.ui.button(label="Onayla", style=discord.ButtonStyle.success, custom_id="yb_onay_butonu")
     async def onay(self, interaction: discord.Interaction, button: discord.Button):
+        if not interaction.user.guild_permissions.administrator and not interaction.guild.get_role(YETKILI_ROL_ID) in interaction.user.roles:
+            await interaction.response.send_message("❌ Bu başvuruyu incelemek için gerekli yetkiniz bulunmamaktadır!", ephemeral=True)
+            return
+
         await interaction.response.defer(ephemeral=True)
-        
         embed = interaction.message.embeds[0]
         kullanici_mentions = embed.fields[0].value
         kullanici_id = int(re.search(r'\d+', kullanici_mentions).group())
@@ -366,43 +379,41 @@ class YetkiliBasvuruIncelemeView(View):
         if uye and rol:
             await uye.add_roles(rol)
             self.clear_items()
-            
             embed.color = discord.Color.green()
             embed.title = "✅ Yetkili Başvurusu Kabul Edildi!"
             await interaction.message.edit(embed=embed, view=self)
-            await interaction.followup.send(f"✅ {uye.mention} başarıyla onaylandı ve rolü verildi.", ephemeral=True)
-            try:
-                await uye.send("🎉 **Tebrikler!** MTTS Yetkili başvurunuz kabul edildi ve yetkileriniz tanımlandı!")
+            await interaction.followup.send(f"✅ {uye.mention} onaylandı ve rolü verildi.", ephemeral=True)
+            try: await uye.send("🎉 Yetkili başvurunuz kabul edildi!")
             except: pass
         else:
-            await interaction.followup.send("❌ Kullanıcı sunucuda yok veya Rol ID hatalı!", ephemeral=True)
+            await interaction.followup.send("❌ Hata oluştu!", ephemeral=True)
 
     @discord.ui.button(label="Reddet", style=discord.ButtonStyle.danger, custom_id="yb_red_butonu")
     async def reddet(self, interaction: discord.Interaction, button: discord.Button):
+        if not interaction.user.guild_permissions.administrator and not interaction.guild.get_role(YETKILI_ROL_ID) in interaction.user.roles:
+            await interaction.response.send_message("❌ Bu başvuruyu incelemek için gerekli yetkiniz bulunmamaktadır!", ephemeral=True)
+            return
+
         await interaction.response.defer(ephemeral=True)
-        
         embed = interaction.message.embeds[0]
         kullanici_mentions = embed.fields[0].value
         kullanici_id = int(re.search(r'\d+', kullanici_mentions).group())
         uye = interaction.guild.get_member(kullanici_id)
         
         self.clear_items()
-                
         embed.color = discord.Color.red()
         embed.title = "❌ Yetkili Başvurusu Reddedildi"
         await interaction.message.edit(embed=embed, view=self)
         await interaction.followup.send("❌ Başvuru reddedildi.", ephemeral=True)
-        
         if uye:
-            try:
-                await uye.send("Maalesef, MTTS Yetkili başvurunuz olumsuz sonuçlanmıştır.")
+            try: await uye.send("Maalesef, yetkili başvurunuz olumsuz sonuçlanmıştır.")
             except: pass
 
 class YetkiliBasvuruModal(Modal, title="MTTS Yetkili Başvuru Formu"):
-    ad = TextInput(label="Adınız", placeholder="Örn: Ahmet", required=True)
-    gorev = TextInput(label="İstediğiniz Görev", placeholder="Örn: Moderatör", required=True)
-    aktiflik = TextInput(label="Haftalık Aktiflik Süreniz", placeholder="Örn: 20 Saat", required=True)
-    deneyim = TextInput(label="Daha Önce Yetkili Oldunuz mu?", style=discord.TextStyle.paragraph, required=True)
+    ad = TextInput(label="Adınız", required=True)
+    gorev = TextInput(label="İstediğiniz Görev", required=True)
+    aktiflik = TextInput(label="Haftalık Aktiflik Süreniz", required=True)
+    deneyim = TextInput(label="Deneyimleriniz", style=discord.TextStyle.paragraph, required=True)
 
     async def on_submit(self, interaction: discord.Interaction):
         log_kanali = interaction.guild.get_channel(BAŞVURU_LOG_KANAL_ID)
@@ -417,9 +428,7 @@ class YetkiliBasvuruModal(Modal, title="MTTS Yetkili Başvuru Formu"):
         await interaction.response.send_message("✅ Başvurunuz yetkililere iletildi!", ephemeral=True)
 
 class YetkiliBasvuruView(View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
+    def __init__(self): super().__init__(timeout=None)
     @discord.ui.button(label="Başvuru Formunu Aç", style=discord.ButtonStyle.primary, custom_id="yb_form_ac")
     async def basvuru_ac(self, interaction: discord.Interaction, button: discord.Button):
         await interaction.response.send_modal(YetkiliBasvuruModal())
@@ -447,10 +456,8 @@ class RolTalepModal(Modal):
             embed.add_field(name="Sunucu", value=self.sunucu_adi.value, inline=True)
             embed.add_field(name="Link", value=self.sunucu_link.value, inline=False)
             embed.add_field(name="Detay", value=self.sunucu_det.value, inline=False)
-            
-            # Rol taleplerine onay/ret butonlarını bağlıyoruz
             await log_kanali.send(embed=embed, view=GenelBasvuruIncelemeView(tur="Özel Rol"))
-        await interaction.response.send_message("✅ Rol talebiniz alındı, yetkililer kontrol edecektir.", ephemeral=True)
+        await interaction.response.send_message("✅ Rol talebiniz alındı.", ephemeral=True)
 
 class RolDropdown(Select):
     def __init__(self):
@@ -465,10 +472,8 @@ class RolDropdown(Select):
 
     async def callback(self, interaction: discord.Interaction):
         rol_isimleri = {
-            "sunucu": "Sunucu Sahibi", 
-            "klan": "Klan Sahibi", 
-            "hosting": "Hosting Sahibi", 
-            "icerik": "İçerik Üreticisi",
+            "sunucu": "Sunucu Sahibi", "klan": "Klan Sahibi", 
+            "hosting": "Hosting Sahibi", "icerik": "İçerik Üreticisi",
             "ilan_verici": "İlan Verici"
         }
         await interaction.response.send_modal(RolTalepModal(rol_label=rol_isimleri[self.values[0]]))
@@ -480,24 +485,20 @@ class RolBasvuruView(View):
 
 # === 4. SLASH KOMUTLARI ===
 
-@bot.tree.command(name="paketler", description="Reklam paketlerinin listesini ve fiyatlarını gösterir.")
+@bot.tree.command(name="paketler", description="Reklam paketlerinin listesini gösterir.")
 async def slash_paketler(interaction: discord.Interaction):
     sub_view = View()
     sub_view.add_item(ReklamPaketleriSubDropdown())
-    await interaction.response.send_message("🔎 Detaylarını görmek istediğiniz MTTS Reklam Paketini seçin:", view=sub_view, ephemeral=True)
+    await interaction.response.send_message("🔎 Reklam Paketini seçin:", view=sub_view, ephemeral=True)
 
-@bot.tree.command(name="reklam-hizmet-panel", description="Görseldeki MTTS Hizmetleri reklam başvuru panelini kurar.")
+@bot.tree.command(name="reklam-hizmet-panel", description="Hizmet paneli kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_reklam_hizmet_panel(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="🤖 MTTS Hizmetleri",
-        description="Aşağıdaki menüden paketleri inceleyebilirsiniz.",
-        color=discord.Color.from_rgb(52, 152, 219)
-    )
+    embed = discord.Embed(title="🤖 MTTS Hizmetleri", description="Aşağıdaki menüden paketleri inceleyebilirsiniz.", color=discord.Color.blue())
     await interaction.channel.send(embed=embed, view=HizmetlerPanelView())
-    await interaction.response.send_message("Reklam hizmetleri paneli başarıyla kuruldu.", ephemeral=True)
+    await interaction.response.send_message("Panel kuruldu.", ephemeral=True)
 
-@bot.tree.command(name="anket", description="Sunucuda oylama/anket başlatır.")
+@bot.tree.command(name="anket", description="Oylama başlatır.")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def slash_anket(interaction: discord.Interaction, soru: str):
     embed = discord.Embed(title="📊 Yeni Anket / Oylama", description=soru, color=discord.Color.purple())
@@ -507,9 +508,8 @@ async def slash_anket(interaction: discord.Interaction, soru: str):
     await msg.add_reaction("✅")
     await msg.add_reaction("❌")
 
-@bot.tree.command(name="cekilis", description="Butonlu ve anlık sayaçlı lüks çekiliş düzenler.")
+@bot.tree.command(name="cekilis", description="Butonlu çekiliş düzenler.")
 @app_commands.checks.has_permissions(manage_messages=True)
-@app_commands.describe(sure="Çekiliş süresi (Örn: 30s, 10m, 2h, 6d)", odul="Çekiliş ödülü", kazanan_sayisi="Kaç kişi kazanacak?")
 async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, kazanan_sayisi: int = 1):
     saniye = parse_duration(sure)
     if saniye <= 0:
@@ -519,10 +519,7 @@ async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, 
     bitis_timestamp = int(time.time()) + saniye
     embed = discord.Embed(
         title=f"🎁 {odul} Çekilişi - Başladı!",
-        description=f"Katılmak için aşağıdaki *Butona* tıklayın!\n\n"
-                    f"•   Süre: <t:{bitis_timestamp}:R>\n"
-                    f"•   Kazanan Sayısı: {kazanan_sayisi}\n"
-                    f"•   Katılımcı Sayısı: 0",
+        description=f"Katılmak için aşağıdaki *Butona* tıklayın!\n\n•   Süre: <t:{bitis_timestamp}:R>\n•   Kazanan Sayısı: {kazanan_sayisi}\n•   Katılımcı Sayısı: 0",
         color=discord.Color.from_rgb(46, 204, 113)
     )
     await interaction.response.send_message("Çekiliş paneli kuruluyor...", ephemeral=True)
@@ -539,38 +536,50 @@ async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, 
         kazananlar = random.sample(katilanlar_listesi, k=gercek_kazanan_sayisi)
         kazanan_mentionlar = ", ".join([f"<@{k_id}>" for k_id in kazananlar])
         
-        bitis_embed = discord.Embed(
-            title=f"🎉 {odul} Çekilişi - Sona Erdi!",
-            description=f"•   Kazananlar: {kazanan_mentionlar}\n"
-                        f"•   Toplam Katılımcı: {len(katilanlar_listesi)}",
-            color=discord.Color.red()
-        )
+        bitis_embed = discord.Embed(title=f"🎉 {odul} Çekilişi - Sona Erdi!", description=f"•   Kazananlar: {kazanan_mentionlar}\n•   Toplam Katılımcı: {len(katilanlar_listesi)}", color=discord.Color.red())
         await msg.edit(embed=bitis_embed, view=cekilis_view)
         await interaction.channel.send(f"🎉 Tebrikler {kazanan_mentionlar}! **{odul}** çekilişini kazandınız!")
     else:
         iptal_embed = discord.Embed(title=f"❌ {odul} Çekilişi İptal Edildi", description="Katılım olmadı.", color=discord.Color.purple())
         await msg.edit(embed=iptal_embed, view=cekilis_view)
 
-@bot.tree.command(name="destek-panel", description="Açılır Menülü Destek panelini kurar.")
+# GÖRSELDEKİ BİREBİR YENİ DESTEK PANELİ KOMUTU
+@bot.tree.command(name="destek-panel", description="Görseldeki formatta kurallı lüks Destek panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_destek_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="📥 Destek Menüsü", description="Aşağıdaki menüden destek talebi açabilirsiniz.", color=discord.Color.green())
+    su_an = datetime.now().strftime("%d.%m.%Y %H:%M")
+    
+    embed = discord.Embed(
+        title="📥 Destek Menüsü",
+        description=(
+            "Aşağıdaki menüden destek talebi açabilirsiniz.\n\n"
+            "**- Yetkilileri meşgul etmek yasaktır.**\n"
+            "**- Destek taleplerinizi kategorilere göre açın.**\n"
+            "**- Uygun kanal seçildikten sonra destek ekibi bilgilendirilecektir.**\n\n"
+            f"Bir kategori seçerek destek talebi açabilirsiniz. - {su_an}"
+        ),
+        color=discord.Color.from_rgb(46, 204, 113) # Görseldeki yeşil tonu
+    )
+    
+    if interaction.guild.icon:
+        embed.set_thumbnail(url=interaction.guild.icon.url)
+        
     await interaction.channel.send(embed=embed, view=DestekPanelView())
-    await interaction.response.send_message("Destek paneli kuruldu.", ephemeral=True)
+    await interaction.response.send_message("Kurallı destek paneli başarıyla kuruldu.", ephemeral=True)
 
 @bot.tree.command(name="yetkili-basvuru-panel", description="Yetkili başvuru panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_yb_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu eksiksiz doldurunuz.", color=discord.Color.gold())
+    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu doldurunuz.", color=discord.Color.gold())
     await interaction.channel.send(embed=embed, view=YetkiliBasvuruView())
-    await interaction.response.send_message("Yetkili başvuru paneli kuruldu.", ephemeral=True)
+    await interaction.response.send_message("Panel kuruldu.", ephemeral=True)
 
 @bot.tree.command(name="rol-basvuru-panel", description="Özel rol başvuru panelini kurar.")
 @app_commands.checks.has_permissions(administrator=True)
 async def slash_rol_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="👑 Özel Rol Başvuru Paneli", description="Aşağıdaki menüden seçim yapın ve formu doldurun.", color=discord.Color.blue())
+    embed = discord.Embed(title="👑 Özel Rol Başvuru Paneli", description="Aşağıdaki menüden seçim yapın.", color=discord.Color.blue())
     await interaction.channel.send(embed=embed, view=RolBasvuruView())
-    await interaction.response.send_message("Rol başvuru paneli kuruldu.", ephemeral=True)
+    await interaction.response.send_message("Panel kuruldu.", ephemeral=True)
 
 @bot.tree.command(name="lock", description="Kanalı kilitle.")
 @app_commands.checks.has_permissions(manage_channels=True)
