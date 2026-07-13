@@ -9,6 +9,7 @@ from discord.ui import Select, Modal, TextInput, View
 from discord.ext import commands
 from threading import Thread
 from flask import Flask
+from datetime import datetime
 
 # === AYARLAR VE KANAL ID'LERİ ===
 BAŞVURU_LOG_KANAL_ID = 1524879141793435689
@@ -218,4 +219,5 @@ class GreetMetniButonView(View):
                 desc_val = field.value
 
         greet_text = f"**🌟 YENİ BİR PARTNER / REKLAM!**\n\n📌 **Açıklama:** {desc_val}\n🔗 **Katılmak İçin:** {link_val}\n\n*Sunucumuza destekleri için teşekkür ederiz! @everyone*"
+        # Hatalı olan kısım düzeltildi:
         await interaction.response.send_message(content=f"```\n{greet_text}\n
