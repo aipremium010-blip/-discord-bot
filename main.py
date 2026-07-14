@@ -27,6 +27,7 @@ def home():
     return "MTTS Bot Aktif!"
 
 def run_web():
+    # Render'ın dinamik port atamasını yakalar, yoksa varsayılan 8080'de açar.
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -51,7 +52,7 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Komutlar senkronize edilirken hata oluştu: {e}")
 
-# === SÜRE DÖNÜŞTÜRÜCÜ FONKSiyon ===
+# === SÜRE DÖNÜŞTÜRÜCÜ FONKSİYON ===
 def parse_duration(duration_str: str) -> int:
     match = re.match(r"(\d+)([smhd]?)", duration_str.lower().strip())
     if not match:
@@ -455,7 +456,8 @@ class RolDropdown(Select):
             discord.SelectOption(label="Sunucu Sahibi", value="sunucu", emoji="👑"),
             discord.SelectOption(label="Klan Sahibi", value="klan", emoji="⚔️"),
             discord.SelectOption(label="Hosting Sahibi", value="hosting", emoji="🖥️"),
-            discord.SelectOption(label="Takım Sahibi", value="takim", emoji="🛡️") # İstediğin gibi yeni Takım Sahibi eklendi
+            discord.SelectOption(label="Takım Sahibi", value="takim", emoji="🛡️"),
+            discord.SelectOption(label="İçerik Üreticisi", value="icerik", emoji="🎥")  # İçerik Üreticisi eklendi
         ]
         super().__init__(placeholder="Talep etmek istediğiniz rolü seçin", options=options, custom_id="rol_talep_dropdown")
 
@@ -464,7 +466,8 @@ class RolDropdown(Select):
             "sunucu": "Sunucu Sahibi", 
             "klan": "Klan Sahibi", 
             "hosting": "Hosting Sahibi", 
-            "takim": "Takım Sahibi" # İçerik ve İlan verici temizlendi, Takım Sahibi eklendi
+            "takim": "Takım Sahibi",
+            "icerik": "İçerik Üreticisi"  # Map listesine eklendi
         }
         await interaction.response.send_modal(RolTalepModal(rol_label=rol_isimleri[self.values[0]]))
 
@@ -589,17 +592,18 @@ async def slash_sil(interaction: discord.Interaction, miktar: int):
     silinen = await interaction.channel.purge(limit=miktar)
     await interaction.followup.send(f"✅ {len(silinen)} adet mesaj silindi.", ephemeral=True)
 
-# Not: Eksik kalan token çalıştırma veya keep_alive() çağrılarını kendi ana yapına göre son satıra ekleyebilirsin.# === KODUN EN SONUNA EKLE ===
-
+# === ANA ÇALIŞTIRMA BLOĞU ===
 if __name__ == "__main__":
-    # Önce web sunucusunu (Flask) arka planda başlatıyoruz
+    # 1. Render için Flask sunucusunu arka planda ayağa kaldırıyoruz
     keep_alive()
     
-    # Ardından Discord botunu kendi tokenın ile başlatıyorsun
-    # Token'ı Render Environment Variables (Çevre Değişkenleri) kısmına eklemen en güvenlisidir.
-    token = os.environ.get("DISCORD_TOKEN") 
+    # 2. Render Environment Variables panelinden DISCORD_TOKEN'ı çekiyoruz
+    token = os.environ.get("DISCORD_TOKEN")
     
     if token:
-        bot.run(token)
+        try:
+            bot.run(token)
+        except Exception as e:
+            print(f"❌ Bot başlatılırken ölümcül hata: {e}")
     else:
-        print("❌ HATA: DISCORD_TOKEN bulunamadı! Lütfen Render panelinden Environment Variables kısmına ekleyin.")
+        print("❌ HATA: DISCORD_TOKEN bulunamadı! Lütfen Render panelinden Environment Variables kısmına tokeninizi ekleyin.")
