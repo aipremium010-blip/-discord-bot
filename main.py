@@ -21,7 +21,7 @@ ILAN_VER_ROL_ID = 1524866585637031958      # !ilan-ver / !arayis komutunu kullan
 
 # === KOMUT KANALLARI ===
 ILAN_KOMUT_KANAL_ID = 1524866586912227330  # Sadece !ilan-ver komutunun çalışacağı kanal
-ARAYIS_KOMUT_KANAL_ID = 152699009634638612 # Sadece !arayis komutunun çalışacağı kanal
+ARAYIS_ENGEL_KANAL_ID = 1526990096346386612 # !arayis komutunun KULLANILAMAYACAĞI kanal
 
 # === YENİ İLAN VE TRANSKRİPT KANALLARI ===
 REKLAM_KANAL_ID = 1524866586912227330      # Kabul edilen ilanların yayınlanacağı ana kanal
@@ -318,9 +318,9 @@ async def arayis_command(ctx):
     except Exception as e:
         print(f"Mesaj silinirken bir hata oluştu: {e}")
 
-    # Yeni tanımlanan ARAYIS_KOMUT_KANAL_ID kontrolü yapılıyor
-    if ctx.channel.id != ARAYIS_KOMUT_KANAL_ID:
-        await ctx.send(f"❌ Bu komutu sadece <#{ARAYIS_KOMUT_KANAL_ID}> kanalında kullanabilirsin!", delete_after=5)
+    # Belirtilen kanalda çalıştırılması engelleniyor
+    if ctx.channel.id == ARAYIS_ENGEL_KANAL_ID:
+        await ctx.send(f"❌ Bu komutu <#{ARAYIS_ENGEL_KANAL_ID}> kanalında kullanamazsın!", delete_after=5)
         return
 
     yetkili_rol = ctx.guild.get_role(ILAN_VER_ROL_ID)
@@ -340,9 +340,9 @@ async def arayis_command(ctx):
 # === SLASH /arayis KOMUTU (SADECE KULLANICIYA ÖZEL GÖRÜNEN - EPHEMERAL) ===
 @bot.tree.command(name="arayis", description="Sadece sizin görebileceğiniz bir arayış formu açar.")
 async def slash_arayis(interaction: discord.Interaction):
-    # Yeni tanımlanan ARAYIS_KOMUT_KANAL_ID kontrolü yapılıyor
-    if interaction.channel.id != ARAYIS_KOMUT_KANAL_ID:
-        await interaction.response.send_message(f"❌ Bu komutu sadece <#{ARAYIS_KOMUT_KANAL_ID}> kanalında kullanabilirsin!", ephemeral=True)
+    # Belirtilen kanalda çalıştırılması engelleniyor
+    if interaction.channel.id == ARAYIS_ENGEL_KANAL_ID:
+        await interaction.response.send_message(f"❌ Bu komutu <#{ARAYIS_ENGEL_KANAL_ID}> kanalında kullanamazsın!", ephemeral=True)
         return
 
     yetkili_rol = interaction.guild.get_role(ILAN_VER_ROL_ID)
@@ -626,7 +626,7 @@ class CekilisButonView(View):
         )
         await interaction.message.edit(embed=embed, view=self)
 
-# === YENİLENMİŞ DESTEK SİSTEMİ VE TRANSKRİPT ALTYAPISI ===
+# === YENİLENSMİŞ DESTEK SİSTEMİ VE TRANSKRİPT ALTYAPISI ===
 class DestekKanalIciView(View):
     def __init__(self):
         super().__init__(timeout=None)
