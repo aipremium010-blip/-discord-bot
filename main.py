@@ -194,17 +194,17 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# === 4. PREFIX VE SLASH KOMUTLARI ===
+# === PREFIX VE SLASH KOMUTLARI ===
 
-# 1) Klasik Prefix Komutu: !mesaj-sayım
+# 1) Klasik Prefix Komutu: !mesaj-sayım (Kullanıcıyı etiketlemeden doğrudan yanıtlar)
 @bot.command(name="mesaj-sayım", aliases=["mesaj-sayim", "mesajsayim", "mesajsayım"])
 async def prefix_mesaj_sayim(ctx):
     user_id = str(ctx.author.id)
     mesaj_sayisi = user_messages.get(user_id, 0)
     embed = get_status_embed(ctx.author, mesaj_sayisi)
-    await ctx.reply(embed=embed, mention_author=False)  # Cevap verirken etiketlemeyi de kapattık
+    await ctx.reply(embed=embed, mention_author=False)
 
-# 2) Slash Komutu: /mesaj-sayim
+# 2) Slash Komutu: /mesaj-sayim (Kişiye Özel Gizli Mesaj)
 @bot.tree.command(name="mesaj-sayim", description="Mevcut toplam mesaj sayınızı ve bir sonraki role kalan farkı gösterir.")
 async def slash_mesaj_sayim(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
@@ -682,7 +682,7 @@ class YetkiliBasvuruModal(Modal, title="MTTS Yetkili Başvuru Formu"):
 class YetkiliBasvuruView(View):
     def __init__(self): super().__init__(timeout=None)
     @discord.ui.button(label="Başvuru Formunu Aç", style=discord.ButtonStyle.primary, custom_id="yb_form_ac")
-    async def basvuru_ac(self, interaction: discord.Interaction, button: discord.Button):
+    async def i_basvuru_ac(self, interaction: discord.Interaction, button: discord.Button):
         await interaction.response.send_modal(YetkiliBasvuruModal())
 
 class RolTalepModal(Modal):
