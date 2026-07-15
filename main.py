@@ -21,11 +21,11 @@ ILAN_VER_ROL_ID = 1524866585637031958      # !ilan-ver / !arayis komutunu kullan
 
 # === KOMUT KANALLARI ===
 ILAN_KOMUT_KANAL_ID = 1524866586912227330  # Sadece !ilan-ver komutunun çalışacağı kanal
-ARAYIS_ENGEL_KANAL_ID = 1526990096346386612 # !arayis komutunun KULLANILAMAYACAĞI kanal
+ARAYIS_ENGEL_KANAL_ID = 1526990096346386612 # !arayis ilanlarının YAYINLANACAĞI kanal (Eski engel kanalı artık arayışların yayın yeri)
 
 # === YENİ İLAN VE TRANSKRİPT KANALLARI ===
-REKLAM_KANAL_ID = 1524866586912227330      # Kabul edilen ilanların yayınlanacağı ana kanal
-ILAN_ONAY_KANAL_ID = 1526986510509932638    # İlanların onay/red için ilk düşeceği kanal
+REKLAM_KANAL_ID = 1524866586912227330      # Kabul edilen normal ilanların yayınlanacağı ana kanal
+ILAN_ONAY_KANAL_ID = 1526986510509932638    # İlanların/Arayışların onay/red için ilk düşeceği kanal
 DESTEK_LOG_KANAL_ID = 1526158750644305981   # Kapatılan ticket transkriptlerinin gideceği kanal
 CEKILIS_LOG_KANAL_ID = 1526989435277807696  # Çekiliş sonuçlarının loglanacağı kanal
 
@@ -92,6 +92,7 @@ async def on_ready():
     bot.add_view(HizmetlerPanelView())
     bot.add_view(YetkiliBasvuruView())
     bot.add_view(RolBasvuruView())
+    bot.add_view(ArayisOnayView()) # Yeni eklenen kalıcı görünüm
     
     try:
         synced = await bot.tree.sync()
@@ -204,6 +205,59 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+
+# === YENİ ARAYIŞ ONAY SİSTEMİ BUTONLARI VE ETKİLEŞİMİ ===
+class ArayisOnayView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Onayla", style=discord.ButtonStyle.success, custom_id="arayis_onay_btn")
+    async def onay_ver(self, interaction: discord.Interaction, button: discord.Button):
+        await interaction.response.defer(ephemeral=True)
+        
+        # Orijinal onay bekleyen embed'i alıyoruz
+        original_embed = interaction.message.embeds[0]
+        
+        # Arayışların yayınlanacağı hedef kanal
+        hedef_kanal = interaction.guild.get_channel(ARAYIS_ENGEL_KANAL_ID)
+        if not hedef_kanal:
+            await interaction.followup.send("❌ Arayış ilanının yayınlanacağı hedef kanal bulunamadı!", ephemeral=True)
+            return
+
+        # Yeni embed oluşturup hedef kanala gönderiyoruz
+        yayin_embed = discord.Embed(
+            title=original_embed.title.replace("⌛ ONAY BEKLEYEN ", ""),
+            description=original_embed.description,
+            color=discord.Color.green(),
+            timestamp=datetime.utcnow()
+        )
+        if original_embed.author:
+            yayin_embed.set_author(name=original_embed.author.name, icon_url=original_embed.author.icon_url)
+        yayin_embed.set_footer(text="Bu arayış ilanı yetkililer tarafından onaylanmıştır.")
+
+        await hedef_kanal.send(embed=yayin_embed)
+
+        # Onay kanalındaki geçici mesajı tamamen siliyoruz (Kanal temizliği)
+        try:
+            await interaction.message.delete()
+        except Exception as e:
+            print(f"Onay mesajı silinirken hata: {e}")
+
+        await interaction.followup.send("✅ İlan onaylandı, yayınlandı ve geçici mesaj silindi!", ephemeral=True)
+
+    @discord.ui.button(label="Reddet", style=discord.ButtonStyle.danger, custom_id="arayis_red_btn")
+    async def reddet_ver(self, interaction: discord.Interaction, button: discord.Button):
+        await interaction.response.defer(ephemeral=True)
+
+        # Reddedildiğinde onay kanalındaki geçici mesajı siliyoruz
+        try:
+            await interaction.message.delete()
+        except Exception as e:
+            print(f"Onay mesajı silinirken hata: {e}")
+
+        await interaction.followup.send("❌ İlan başvurusu reddedildi ve geçici mesaj silindi.", ephemeral=True)
+
+
 # === !ilan-ver SİSTEMİ VE MODAL KARTI (ESKİ DOĞRUDAN SİSTEM - SIFIR LOG) ===
 class IlanVerModal(Modal, title="İlan / Reklam Yayınlama Formu"):
     baslik = TextInput(label="İlan / Proje Başlığı", placeholder="Örn: Sunucumuza Reklam Yetkilisi Aranıyor!", required=True)
@@ -289,27 +343,27 @@ class ArayisModal(Modal, title="Arayış İlanı Yayınlama Formu"):
     iletisim = TextInput(label="İletişim Bilgisi / Discord Davet", placeholder="Örn: discord.gg/... veya DM: @kullanıcı", required=True)
 
     async def on_submit(self, interaction: discord.Interaction):
-        reklam_kanali = interaction.guild.get_channel(REKLAM_KANAL_ID)
-        if not reklam_kanali:
-            await interaction.response.send_message("❌ İlanların gönderileceği reklam kanalı bulunamadı. Lütfen ayarları kontrol edin.", ephemeral=True)
+        onay_kanali = interaction.guild.get_channel(ILAN_ONAY_KANAL_ID)
+        if not onay_kanali:
+            await interaction.response.send_message("❌ İlan onay kanalı bulunamadı. Lütfen ayarları kontrol edin.", ephemeral=True)
             return
 
         embed = discord.Embed(
-            title=f"🔍 YENİ ARAYIŞ: {self.baslik.value}",
+            title=f"⌛ ONAY BEKLEYEN ARAYIŞ: {self.baslik.value}",
             description=f"{self.acıklama.value}\n\n📥 **İletişim / Link:** {self.iletisim.value}",
-            color=discord.Color.blue(),
+            color=discord.Color.orange(),
             timestamp=datetime.utcnow()
         )
-        embed.set_author(name=f"Arayış Sahibi: {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
-        embed.set_footer(text="Bu arayış ilanı !arayis komutu ile oluşturuldu.")
+        embed.set_author(name=f"Başvuran: {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text=f"Kullanıcı ID: {interaction.user.id}")
 
-        # Onay beklemeden doğrudan kanala gönderir
-        await reklam_kanali.send(embed=embed)
+        # Onay kanalına gönderiyoruz (Onayla / Reddet butonlu olarak)
+        await onay_kanali.send(embed=embed, view=ArayisOnayView())
         
         # Sadece yazan kişiye başarı bildirimi döner
-        await interaction.response.send_message("✅ Arayış ilanınız başarıyla reklam kanalında yayınlandı!", ephemeral=True)
+        await interaction.response.send_message("✅ İlanınız başarıyla yetkili onayına gönderildi. Onaylandığında yayınlanacaktır!", ephemeral=True)
 
-# === PREFIX !arayis / !arayış KOMUTU (ARKADAN SİLİNEN) ===
+# === PREFIX !arayis / !arayış KOMUTU ===
 @bot.command(name="arayis", aliases=["arayış"])
 async def arayis_command(ctx):
     # Yazılan !arayis mesajını anında siliyoruz
@@ -317,11 +371,6 @@ async def arayis_command(ctx):
         await ctx.message.delete()
     except Exception as e:
         print(f"Mesaj silinirken bir hata oluştu: {e}")
-
-    # Belirtilen kanalda çalıştırılması engelleniyor
-    if ctx.channel.id == ARAYIS_ENGEL_KANAL_ID:
-        await ctx.send(f"❌ Bu komutu <#{ARAYIS_ENGEL_KANAL_ID}> kanalında kullanamazsın!", delete_after=5)
-        return
 
     yetkili_rol = ctx.guild.get_role(ILAN_VER_ROL_ID)
     if yetkili_rol not in ctx.author.roles and not ctx.author.guild_permissions.administrator:
@@ -340,11 +389,6 @@ async def arayis_command(ctx):
 # === SLASH /arayis KOMUTU (SADECE KULLANICIYA ÖZEL GÖRÜNEN - EPHEMERAL) ===
 @bot.tree.command(name="arayis", description="Sadece sizin görebileceğiniz bir arayış formu açar.")
 async def slash_arayis(interaction: discord.Interaction):
-    # Belirtilen kanalda çalıştırılması engelleniyor
-    if interaction.channel.id == ARAYIS_ENGEL_KANAL_ID:
-        await interaction.response.send_message(f"❌ Bu komutu <#{ARAYIS_ENGEL_KANAL_ID}> kanalında kullanamazsın!", ephemeral=True)
-        return
-
     yetkili_rol = interaction.guild.get_role(ILAN_VER_ROL_ID)
     if yetkili_rol not in interaction.user.roles and not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("❌ Bu komutu kullanabilmek için gerekli özel role sahip değilsin!", ephemeral=True)
