@@ -23,14 +23,14 @@ ILAN_KANAL_ID = 1524866586912227330       # !ilan-ver komutunun çalışacağı 
 # === RANK-UP SİSTEMİ AYARLARI ===
 RANKUP_KANAL_ID = 1526885933977440266      # Seviye atlama mesajlarının gideceği kanal
 
-# Mesaj Rol ID'leri
+# Mesaj Rol ID'leri (Seviye arta arta birikecek roller)
 ROL_KOMUR_ID = 1526713207027400915         # 20 Mesaj Rolü (Kömür)
 ROL_BAKIR_ID = 1526713074164432997         # 50 Mesaj Rolü (Bakır)
 ROL_DEMIR_ID = 1526713316548935751         # 150 Mesaj Rolü (Demir)
 ROL_ALTIN_ID = 1526713378406535248         # 300 Mesaj Rolü (Altın)
 ROL_ZUMRUT_ID = 1526713471893245973        # 500 Mesaj Rolü (Zümrüt)
 ROL_ELMAS_ID = 1526713530576011435         # 1000 Mesaj Rolü (Elmas)
-# ROL_NETHERIT_ID = 123456789012345678     # Gelecekte eklemek istersen buraya ID yazabilirsin
+ROL_NETHERIT_ID = 123456789012345678       # 2000 Mesaj Rolü (Netherit - ID'yi buraya girebilirsin)
 
 # === VERİ TABANI (JSON) ===
 DATA_FILE = "user_messages.json"
@@ -96,7 +96,40 @@ def parse_duration(duration_str: str) -> int:
     elif unit == 'd': return amount * 86400
     else: return amount
 
-# === OTOMATİK MESAJ SAYMA VE RANKUP SİSTEMİ ===
+# === MESAJ SAYISI DURUM KONTROLÜ (YARDIMCI FONKSİYON) ===
+def get_status_embed(member: discord.Member, count: int) -> discord.Embed:
+    # Seviye basamakları
+    hedefler = [
+        {"hedef": 20, "isim": "Kömür"},
+        {"hedef": 50, "isim": "Bakır"},
+        {"hedef": 150, "isim": "Demir"},
+        {"hedef": 300, "isim": "Altın"},
+        {"hedef": 500, "isim": "Zümrüt"},
+        {"hedef": 1000, "isim": "Elmas"},
+        {"hedef": 2000, "isim": "Netherit"}
+    ]
+    
+    sonraki_hedef = None
+    for h in hedefler:
+        if count < h["hedef"]:
+            sonraki_hedef = h
+            break
+            
+    if sonraki_hedef:
+        kalan = sonraki_hedef["hedef"] - count
+        hedef_metni = f"Bir sonraki rol olan **{sonraki_hedef['isim']}** ({sonraki_hedef['hedef']} Mesaj) için kalan mesaj: **{kalan}**"
+    else:
+        hedef_metni = "Tebrikler! En üst seviye olan **Netherit** sınırına ulaştınız! 🎉"
+
+    embed = discord.Embed(
+        title="📊 Mesaj İstatistikleriniz",
+        description=f"Şu ana kadar toplam **{count}** adet mesaj gönderdiniz.\n\n{hedef_metni}",
+        color=discord.Color.blue()
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+    return embed
+
+# === OTOMATİK MESAJ SAYMA VE SIRALI RANKUP SİSTEMİ ===
 @bot.event
 async def on_message(message):
     if message.author.bot or not message.guild:
@@ -112,55 +145,187 @@ async def on_message(message):
     current_count = user_messages[user_id]
     yeni_rol_id = None
     hedef_mesaj = 0
-    maden_adi = ""
 
+    # Mesaj sayısına göre rolleri tanımlıyoruz (seviyeler arta arta gidecek şekilde)
     if current_count == 20:
         yeni_rol_id = ROL_KOMUR_ID
         hedef_mesaj = 20
-        maden_adi = "Kömür"
     elif current_count == 50:
         yeni_rol_id = ROL_BAKIR_ID
         hedef_mesaj = 50
-        maden_adi = "Bakır"
     elif current_count == 150:
         yeni_rol_id = ROL_DEMIR_ID
         hedef_mesaj = 150
-        maden_adi = "Demir"
     elif current_count == 300:
         yeni_rol_id = ROL_ALTIN_ID
         hedef_mesaj = 300
-        maden_adi = "Altın"
     elif current_count == 500:
         yeni_rol_id = ROL_ZUMRUT_ID
         hedef_mesaj = 500
-        maden_adi = "Zümrüt"
     elif current_count == 1000:
         yeni_rol_id = ROL_ELMAS_ID
         hedef_mesaj = 1000
-        maden_adi = "Elmas"
+    elif current_count == 2000:
+        yeni_rol_id = ROL_NETHERIT_ID
+        hedef_mesaj = 2000
 
     if yeni_rol_id:
         rol = message.guild.get_role(yeni_rol_id)
         if rol:
             try:
+                # Kullanıcıya rolü veriyoruz (Önceki rolleri SİLMİYORUZ, böylece seviye arta arta birikiyor)
                 await message.author.add_roles(rol)
                 
                 rankup_kanali = message.guild.get_channel(RANKUP_KANAL_ID)
                 if rankup_kanali:
-                    # Kullanıcıyı etiketlemeden sadece düz adını yazdırıyoruz:
+                    # Kesinlikle etiket atmayacak, sadece düz isim yazacak şekilde embed hazırlıyoruz
                     embed = discord.Embed(
-                        title="🎉 Tebrikler! Rol Kazanıldı!",
+                        title="🎉 Tebrikler! Seviye Atlandı!",
                         description=f"**{message.author.name}**, sunucuda **{hedef_mesaj}** mesaj sınırına ulaşarak **{rol.name}** rolünü kazandı! 🚀",
                         color=discord.Color.from_rgb(46, 204, 113)
                     )
                     embed.set_thumbnail(url=message.author.display_avatar.url)
                     embed.set_footer(text=f"Toplam Mesaj: {current_count}")
-                    # send fonksiyonunda allowed_mentions kullanarak hiçbir şekilde etiket gitmemesini garantiye alıyoruz
+                    
+                    # allowed_mentions.none() ile etiket atılmasını tamamen engelliyoruz
                     await rankup_kanali.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
             except Exception as e:
                 print(f"Rol verilirken veya log iletilirken hata oluştu: {e}")
 
     await bot.process_commands(message)
+
+# === 4. PREFIX VE SLASH KOMUTLARI ===
+
+# 1) Klasik Prefix Komutu: !mesaj-sayım
+@bot.command(name="mesaj-sayım", aliases=["mesaj-sayim", "mesajsayim", "mesajsayım"])
+async def prefix_mesaj_sayim(ctx):
+    user_id = str(ctx.author.id)
+    mesaj_sayisi = user_messages.get(user_id, 0)
+    embed = get_status_embed(ctx.author, mesaj_sayisi)
+    await ctx.reply(embed=embed, mention_author=False)  # Cevap verirken etiketlemeyi de kapattık
+
+# 2) Slash Komutu: /mesaj-sayim
+@bot.tree.command(name="mesaj-sayim", description="Mevcut toplam mesaj sayınızı ve bir sonraki role kalan farkı gösterir.")
+async def slash_mesaj_sayim(interaction: discord.Interaction):
+    user_id = str(interaction.user.id)
+    mesaj_sayisi = user_messages.get(user_id, 0)
+    embed = get_status_embed(interaction.user, mesaj_sayisi)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# Geriye Kalan Diğer Komutlar...
+@bot.tree.command(name="paketler", description="Reklam paketlerinin listesini gösterir.")
+async def slash_paketler(interaction: discord.Interaction):
+    sub_view = View()
+    sub_view.add_item(ReklamPaketleriSubDropdown())
+    await interaction.response.send_message("🔎 Reklam Paketini seçin:", view=sub_view, ephemeral=True)
+
+@bot.tree.command(name="reklam-hizmet-panel", description="Hizmet paneli kurar.")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_reklam_hizmet_panel(interaction: discord.Interaction):
+    embed = discord.Embed(title="🤖 MTTS Hizmetleri", description="Aşağıdaki menüden paketleri inceleyebilirsiniz.", color=discord.Color.blue())
+    await interaction.channel.send(embed=embed, view=HizmetlerPanelView())
+    await interaction.response.send_message("Panel kuruldu.", ephemeral=True)
+
+@bot.tree.command(name="anket", description="Oylama başlatır.")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_anket(interaction: discord.Interaction, soru: str):
+    embed = discord.Embed(title="📊 Yeni Anket / Oylama", description=soru, color=discord.Color.purple())
+    embed.set_footer(text=f"Başlatan: {interaction.user.name}")
+    await interaction.response.send_message("Anket oluşturuluyor...", ephemeral=True)
+    msg = await interaction.channel.send(embed=embed)
+    await msg.add_reaction("✅")
+    await msg.add_reaction("❌")
+
+@bot.tree.command(name="cekilis", description="Butonlu çekiliş düzenler.")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, kazanan_sayisi: int = 1):
+    saniye = parse_duration(sure)
+    if saniye <= 0:
+        await interaction.response.send_message("❌ Geçersiz süre formatı!", ephemeral=True)
+        return
+
+    bitis_timestamp = int(time.time()) + saniye
+    embed = discord.Embed(
+        title=f"🎁 {odul} Çekilişi - Başladı!",
+        description=f"Katılmak için aşağıdaki *Butona* tıklayın!\n\n•   Süre: <t:{bitis_timestamp}:R>\n•   Kazanan Sayısı: {kazanan_sayisi}\n•   Katılımcı Sayısı: 0",
+        color=discord.Color.from_rgb(46, 204, 113)
+    )
+    await interaction.response.send_message("Çekiliş paneli kuruluyor...", ephemeral=True)
+    cekilis_view = CekilisButonView(odul=odul, bitis_timestamp=bitis_timestamp, kazanan_sayisi=kazanan_sayisi)
+    msg = await interaction.channel.send(embed=embed, view=cekilis_view)
+    
+    await asyncio.sleep(saniye)
+    
+    for item in cekilis_view.children: item.disabled = True
+    katilanlar_listesi = list(cekilis_view.katilimcilar)
+    
+    if katilanlar_listesi:
+        gercek_kazanan_sayisi = min(kazanan_sayisi, len(katilanlar_listesi))
+        kazananlar = random.sample(katilanlar_listesi, k=gercek_kazanan_sayisi)
+        kazanan_mentionlar = ", ".join([f"<@{k_id}>" for k_id in kazananlar])
+        
+        bitis_embed = discord.Embed(title=f"🎉 {odul} Çekilişi - Sona Erdi!", description=f"•   Kazananlar: {kazanan_mentionlar}\n•   Toplam Katılımcı: {len(katilanlar_listesi)}", color=discord.Color.red())
+        await msg.edit(bitis_embed, view=cekilis_view)
+        await interaction.channel.send(f"🎉 Tebrikler {kazanan_mentionlar}! **{odul}** çekilişini kazandınız!")
+    else:
+        iptal_embed = discord.Embed(title=f"❌ {odul} Çekilişi İptal Edildi", description="Katılım olmadı.", color=discord.Color.purple())
+        await msg.edit(embed=iptal_embed, view=cekilis_view)
+
+@bot.tree.command(name="destek-panel", description="Görseldeki formatta kurallı lüks Destek panelini kurar.")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_destek_panel(interaction: discord.Interaction):
+    su_an = datetime.now().strftime("%d.%m.%Y %H:%M")
+    
+    embed = discord.Embed(
+        title="📥 Destek Menüsü",
+        description=(
+            "Aşağıdaki menüden destek talebi açabilirsiniz.\n\n"
+            "**- Yetkilileri meşgul etmek yasaktır.**\n"
+            "**- Destek taleplerinizi kategorilere göre açın.**\n"
+            "**- Uygun kanal seçildikten sonra destek ekibi bilgilendirilecektir.**\n\n"
+            f"Bir kategori seçerek destek talebi açabilirsiniz. - {su_an}"
+        ),
+        color=discord.Color.from_rgb(46, 204, 113)
+    )
+    
+    if interaction.guild.icon:
+        embed.set_thumbnail(url=interaction.guild.icon.url)
+        
+    await interaction.channel.send(embed=embed, view=DestekPanelView())
+    await interaction.response.send_message("Kurallı destek paneli başarıyla kuruldu.", ephemeral=True)
+
+@bot.tree.command(name="yetkili-basvuru-panel", description="Yetkili başvuru panelini kurar.")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_yb_panel(interaction: discord.Interaction):
+    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu doldurunuz.", color=discord.Color.gold())
+    await interaction.channel.send(embed=embed, view=YetkiliBasvuruView())
+    await interaction.response.send_message("Panel kuruldu.", ephemeral=True)
+
+@bot.tree.command(name="rol-basvuru-panel", description="Özel rol başvuru panelini kurar.")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_rol_panel(interaction: discord.Interaction):
+    embed = discord.Embed(title="👑 Özel Rol Başvuru Paneli", description="Aşağıdaki menüden seçim yapın.", color=discord.Color.blue())
+    await interaction.channel.send(embed=embed, view=RolBasvuruView())
+    await interaction.response.send_message("Panel kuruldu.", ephemeral=True)
+
+@bot.tree.command(name="lock", description="Kanalı kilitle.")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slash_lock(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
+    await interaction.response.send_message(embed=discord.Embed(description="🔒 Bu kanal kapatılmıştır.", color=discord.Color.red()))
+
+@bot.tree.command(name="unlock", description="Kanal kilidini aç.")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slash_unlock(interaction: discord.Interaction):
+    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
+    await interaction.response.send_message(embed=discord.Embed(description="🔓 Bu kanal açılmıştır.", color=discord.Color.green()))
+
+@bot.tree.command(name="sil", description="Mesaj siler.")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_sil(interaction: discord.Interaction, miktar: int):
+    await interaction.response.defer(ephemeral=True)
+    silinen = await interaction.channel.purge(limit=miktar)
+    await interaction.followup.send(f"✅ {len(silinen)} adet mesaj silindi.", ephemeral=True)
 
 # === GİRİŞ VE ÇIKIŞ SİSTEMİ ===
 @bot.event
@@ -276,7 +441,7 @@ class CekilisButonView(View):
         )
         await interaction.message.edit(embed=embed, view=self)
 
-# === 1. DESTEK SİSTEMİ ===
+# === DESTEK SİSTEMLERİ ===
 class DestekKanalIciView(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -351,7 +516,7 @@ class DestekPanelView(View):
         super().__init__(timeout=None)
         self.add_item(DestekDropdown())
 
-# === 2. REKLAM VE PİNG SİSTEMLERİ ===
+# === REKLAM VE PİNG SİSTEMLERİ ===
 class ReklamHizmetModal(Modal):
     def __init__(self, hizmet_turu: str, detaylar: str = ""):
         super().__init__(title=f"{hizmet_turu} Başvuru Formu")
@@ -443,7 +608,7 @@ class HizmetlerPanelView(View):
         super().__init__(timeout=None)
         self.add_item(HizmetlerDropdown())
 
-# === 3. YETKİLİ / ROL BAŞVURU SİSTEMLERİ ===
+# === YETKİLİ / ROL BAŞVURU SİSTEMLERİ ===
 class YetkiliBasvuruIncelemeView(View):
     def __init__(self, basvuran_id: int = None):
         super().__init__(timeout=None)
@@ -571,144 +736,6 @@ class RolBasvuruView(View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(RolDropdown())
-
-# === 4. SLASH KOMUTLARI ===
-
-@bot.tree.command(name="mesaj-sayim", description="Mevcut toplam mesaj sayınızı ve bir sonraki role kalan farkı gösterir.")
-async def slash_mesaj_sayim(interaction: discord.Interaction):
-    user_id = str(interaction.user.id)
-    mesaj_sayisi = user_messages.get(user_id, 0)
-    
-    hedefler = [20, 50, 150, 300, 500, 1000]
-    sonraki_hedef = None
-    for h in hedefler:
-        if mesaj_sayisi < h:
-            sonraki_hedef = h
-            break
-            
-    hedef_metni = f"Bir sonraki role kalan mesaj: **{sonraki_hedef - mesaj_sayisi}**" if sonraki_hedef else "Tüm mesaj seviyelerine ulaştınız! 🎉"
-
-    embed = discord.Embed(
-        title="📊 Mesaj İstatistikleriniz",
-        description=f"Şu ana kadar toplam **{mesaj_sayisi}** adet mesaj gönderdiniz.\n\n{hedef_metni}",
-        color=discord.Color.blue()
-    )
-    embed.set_thumbnail(url=interaction.user.display_avatar.url)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-@bot.tree.command(name="paketler", description="Reklam paketlerinin listesini gösterir.")
-async def slash_paketler(interaction: discord.Interaction):
-    sub_view = View()
-    sub_view.add_item(ReklamPaketleriSubDropdown())
-    await interaction.response.send_message("🔎 Reklam Paketini seçin:", view=sub_view, ephemeral=True)
-
-@bot.tree.command(name="reklam-hizmet-panel", description="Hizmet paneli kurar.")
-@app_commands.checks.has_permissions(administrator=True)
-async def slash_reklam_hizmet_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="🤖 MTTS Hizmetleri", description="Aşağıdaki menüden paketleri inceleyebilirsiniz.", color=discord.Color.blue())
-    await interaction.channel.send(embed=embed, view=HizmetlerPanelView())
-    await interaction.response.send_message("Panel kuruldu.", ephemeral=True)
-
-@bot.tree.command(name="anket", description="Oylama başlatır.")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def slash_anket(interaction: discord.Interaction, soru: str):
-    embed = discord.Embed(title="📊 Yeni Anket / Oylama", description=soru, color=discord.Color.purple())
-    embed.set_footer(text=f"Başlatan: {interaction.user.name}")
-    await interaction.response.send_message("Anket oluşturuluyor...", ephemeral=True)
-    msg = await interaction.channel.send(embed=embed)
-    await msg.add_reaction("✅")
-    await msg.add_reaction("❌")
-
-@bot.tree.command(name="cekilis", description="Butonlu çekiliş düzenler.")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, kazanan_sayisi: int = 1):
-    saniye = parse_duration(sure)
-    if saniye <= 0:
-        await interaction.response.send_message("❌ Geçersiz süre formatı!", ephemeral=True)
-        return
-
-    bitis_timestamp = int(time.time()) + saniye
-    embed = discord.Embed(
-        title=f"🎁 {odul} Çekilişi - Başladı!",
-        description=f"Katılmak için aşağıdaki *Butona* tıklayın!\n\n•   Süre: <t:{bitis_timestamp}:R>\n•   Kazanan Sayısı: {kazanan_sayisi}\n•   Katılımcı Sayısı: 0",
-        color=discord.Color.from_rgb(46, 204, 113)
-    )
-    await interaction.response.send_message("Çekiliş paneli kuruluyor...", ephemeral=True)
-    cekilis_view = CekilisButonView(odul=odul, bitis_timestamp=bitis_timestamp, kazanan_sayisi=kazanan_sayisi)
-    msg = await interaction.channel.send(embed=embed, view=cekilis_view)
-    
-    await asyncio.sleep(saniye)
-    
-    for item in cekilis_view.children: item.disabled = True
-    katilanlar_listesi = list(cekilis_view.katilimcilar)
-    
-    if katilanlar_listesi:
-        gercek_kazanan_sayisi = min(kazanan_sayisi, len(katilanlar_listesi))
-        kazananlar = random.sample(katilanlar_listesi, k=gercek_kazanan_sayisi)
-        kazanan_mentionlar = ", ".join([f"<@{k_id}>" for k_id in kazananlar])
-        
-        bitis_embed = discord.Embed(title=f"🎉 {odul} Çekilişi - Sona Erdi!", description=f"•   Kazananlar: {kazanan_mentionlar}\n•   Toplam Katılımcı: {len(katilanlar_listesi)}", color=discord.Color.red())
-        await msg.edit(bitis_embed, view=cekilis_view)
-        await interaction.channel.send(f"🎉 Tebrikler {kazanan_mentionlar}! **{odul}** çekilişini kazandınız!")
-    else:
-        iptal_embed = discord.Embed(title=f"❌ {odul} Çekilişi İptal Edildi", description="Katılım olmadı.", color=discord.Color.purple())
-        await msg.edit(embed=iptal_embed, view=cekilis_view)
-
-@bot.tree.command(name="destek-panel", description="Görseldeki formatta kurallı lüks Destek panelini kurar.")
-@app_commands.checks.has_permissions(administrator=True)
-async def slash_destek_panel(interaction: discord.Interaction):
-    su_an = datetime.now().strftime("%d.%m.%Y %H:%M")
-    
-    embed = discord.Embed(
-        title="📥 Destek Menüsü",
-        description=(
-            "Aşağıdaki menüden destek talebi açabilirsiniz.\n\n"
-            "**- Yetkilileri meşgul etmek yasaktır.**\n"
-            "**- Destek taleplerinizi kategorilere göre açın.**\n"
-            "**- Uygun kanal seçildikten sonra destek ekibi bilgilendirilecektir.**\n\n"
-            f"Bir kategori seçerek destek talebi açabilirsiniz. - {su_an}"
-        ),
-        color=discord.Color.from_rgb(46, 204, 113)
-    )
-    
-    if interaction.guild.icon:
-        embed.set_thumbnail(url=interaction.guild.icon.url)
-        
-    await interaction.channel.send(embed=embed, view=DestekPanelView())
-    await interaction.response.send_message("Kurallı destek paneli başarıyla kuruldu.", ephemeral=True)
-
-@bot.tree.command(name="yetkili-basvuru-panel", description="Yetkili başvuru panelini kurar.")
-@app_commands.checks.has_permissions(administrator=True)
-async def slash_yb_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="📋 Yetkili Başvuru Paneli", description="Aşağıdaki butona tıklayarak formu doldurunuz.", color=discord.Color.gold())
-    await interaction.channel.send(embed=embed, view=YetkiliBasvuruView())
-    await interaction.response.send_message("Panel kuruldu.", ephemeral=True)
-
-@bot.tree.command(name="rol-basvuru-panel", description="Özel rol başvuru panelini kurar.")
-@app_commands.checks.has_permissions(administrator=True)
-async def slash_rol_panel(interaction: discord.Interaction):
-    embed = discord.Embed(title="👑 Özel Rol Başvuru Paneli", description="Aşağıdaki menüden seçim yapın.", color=discord.Color.blue())
-    await interaction.channel.send(embed=embed, view=RolBasvuruView())
-    await interaction.response.send_message("Panel kuruldu.", ephemeral=True)
-
-@bot.tree.command(name="lock", description="Kanalı kilitle.")
-@app_commands.checks.has_permissions(manage_channels=True)
-async def slash_lock(interaction: discord.Interaction):
-    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
-    await interaction.response.send_message(embed=discord.Embed(description="🔒 Bu kanal kapatılmıştır.", color=discord.Color.red()))
-
-@bot.tree.command(name="unlock", description="Kanal kilidini aç.")
-@app_commands.checks.has_permissions(manage_channels=True)
-async def slash_unlock(interaction: discord.Interaction):
-    await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
-    await interaction.response.send_message(embed=discord.Embed(description="🔓 Bu kanal açılmıştır.", color=discord.Color.green()))
-
-@bot.tree.command(name="sil", description="Mesaj siler.")
-@app_commands.checks.has_permissions(administrator=True)
-async def slash_sil(interaction: discord.Interaction, miktar: int):
-    await interaction.response.defer(ephemeral=True)
-    silinen = await interaction.channel.purge(limit=miktar)
-    await interaction.followup.send(f"✅ {len(silinen)} adet mesaj silindi.", ephemeral=True)
 
 # === ANA ÇALIŞTIRMA BLOĞU ===
 if __name__ == "__main__":
