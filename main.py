@@ -18,7 +18,10 @@ BAŞVURU_LOG_KANAL_ID = 1524879141793435689
 GIRIS_CIKIS_KANAL_ID = 123456789012345678  # Giriş-Çıkış log kanal ID'si
 YETKILI_ROL_ID = 987654321098765432        # Başvuru onaylanınca verilecek Yetkili Rol ID'si
 ILAN_VER_ROL_ID = 1524866585637031958      # !ilan-ver / !arayis komutunu kullanabilecek Özel Rol ID'si
-ILAN_KOMUT_KANAL_ID = 1524866586912227330  # Komutların çalışacağı TEK KANAL ID'si
+
+# === KOMUT KANALLARI ===
+ILAN_KOMUT_KANAL_ID = 1524866586912227330  # Sadece !ilan-ver komutunun çalışacağı kanal
+ARAYIS_KOMUT_KANAL_ID = 152699009634638612 # Sadece !arayis komutunun çalışacağı kanal
 
 # === YENİ İLAN VE TRANSKRİPT KANALLARI ===
 REKLAM_KANAL_ID = 1524866586912227330      # Kabul edilen ilanların yayınlanacağı ana kanal
@@ -282,7 +285,7 @@ async def slash_ilan_ver(interaction: discord.Interaction):
 # === !arayis / !arayış SİSTEMİ VE MODAL KARTI ===
 class ArayisModal(Modal, title="Arayış İlanı Yayınlama Formu"):
     baslik = TextInput(label="Arayış Başlığı", placeholder="Örn: Sunucu Ortağı veya Reklamcı Aranıyor!", required=True)
-    acıklama = TextInput(label="Arayış Detayı / Açıklama", placeholder="Aradığınız kriterleri detaylıca belirtin...", style=discord.TextStyle.paragraph, required=True)
+    acıklama = TextInput(label="Arayış Detayı / Açıklama", placeholder="Arandığınız kriterleri detaylıca belirtin...", style=discord.TextStyle.paragraph, required=True)
     iletisim = TextInput(label="İletişim Bilgisi / Discord Davet", placeholder="Örn: discord.gg/... veya DM: @kullanıcı", required=True)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -315,8 +318,9 @@ async def arayis_command(ctx):
     except Exception as e:
         print(f"Mesaj silinirken bir hata oluştu: {e}")
 
-    if ctx.channel.id != ILAN_KOMUT_KANAL_ID:
-        await ctx.send(f"❌ Bu komutu sadece <#{ILAN_KOMUT_KANAL_ID}> kanalında kullanabilirsin!", delete_after=5)
+    # Yeni tanımlanan ARAYIS_KOMUT_KANAL_ID kontrolü yapılıyor
+    if ctx.channel.id != ARAYIS_KOMUT_KANAL_ID:
+        await ctx.send(f"❌ Bu komutu sadece <#{ARAYIS_KOMUT_KANAL_ID}> kanalında kullanabilirsin!", delete_after=5)
         return
 
     yetkili_rol = ctx.guild.get_role(ILAN_VER_ROL_ID)
@@ -336,8 +340,9 @@ async def arayis_command(ctx):
 # === SLASH /arayis KOMUTU (SADECE KULLANICIYA ÖZEL GÖRÜNEN - EPHEMERAL) ===
 @bot.tree.command(name="arayis", description="Sadece sizin görebileceğiniz bir arayış formu açar.")
 async def slash_arayis(interaction: discord.Interaction):
-    if interaction.channel.id != ILAN_KOMUT_KANAL_ID:
-        await interaction.response.send_message(f"❌ Bu komutu sadece <#{ILAN_KOMUT_KANAL_ID}> kanalında kullanabilirsin!", ephemeral=True)
+    # Yeni tanımlanan ARAYIS_KOMUT_KANAL_ID kontrolü yapılıyor
+    if interaction.channel.id != ARAYIS_KOMUT_KANAL_ID:
+        await interaction.response.send_message(f"❌ Bu komutu sadece <#{ARAYIS_KOMUT_KANAL_ID}> kanalında kullanabilirsin!", ephemeral=True)
         return
 
     yetkili_rol = interaction.guild.get_role(ILAN_VER_ROL_ID)
