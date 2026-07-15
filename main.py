@@ -77,10 +77,18 @@ intents.guilds = True
 intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# === BOT HAZIR OLDUĞUNDA ===
+# === BOT HAZIR OLDUĞUNDA (KALICI GÖRÜNÜMLER BURADA KAYDEDİLİR) ===
 @bot.event
 async def on_ready():
     print(f"🤖 {bot.user.name} olarak giriş yapıldı!")
+    
+    # Bot yeniden başladığında eski buton/menülerin bozulmaması için buraya ekliyoruz:
+    bot.add_view(DestekPanelView())
+    bot.add_view(DestekKanalIciView())
+    bot.add_view(HizmetlerPanelView())
+    bot.add_view(YetkiliBasvuruView())
+    bot.add_view(RolBasvuruView())
+    
     try:
         synced = await bot.tree.sync()
         print(f"✨ {len(synced)} adet slash komutu başarıyla senkronize edildi.")
@@ -101,7 +109,7 @@ def parse_duration(duration_str: str) -> int:
     elif unit == 'd': return amount * 86400
     else: return amount
 
-# === MESAJ SAYISI DURUM KONTROLÜ (YARDIMCI FONKSİYON) ===
+# === MESAJ SAYISI DURUM KONTROLÜ ===
 def get_status_embed(member: discord.Member, count: int) -> discord.Embed:
     hedefler = [
         {"hedef": 20, "isim": "Kömür"},
@@ -222,7 +230,6 @@ class IlanOnayButonlari(View):
 
         await reklam_kanali.send(embed=embed)
         
-        # Onay kanalındaki mesajı güncelle
         onay_embed = interaction.message.embeds[0]
         onay_embed.color = discord.Color.green()
         onay_embed.title = "✅ İLAN ONAYLANDI VE YAYINLANDI"
@@ -240,7 +247,7 @@ class IlanOnayButonlari(View):
         onay_embed.title = "❌ İLAN REDDEDİLDİ"
         
         self.clear_items()
-        await interaction.message.edit(embed=onay_embed, view=self)
+        await interaction.message.edit(onay_embed, view=self)
         await interaction.followup.send("❌ İlan reddedildi.", ephemeral=True)
 
 # === !ilan-ver SİSTEMİ VE MODAL KARTI ===
@@ -264,7 +271,6 @@ class IlanVerModal(Modal, title="İlan / Reklam Yayınlama Formu"):
         embed.add_field(name="İlanı Gönderen", value=interaction.user.mention, inline=False)
         embed.set_author(name=interaction.user.name, icon_url=interaction.user.display_avatar.url)
 
-        # Onay kanalına butonlarla birlikte yolla
         view = IlanOnayButonlari(
             baslik=self.baslik.value,
             aciklama=self.acıklama.value,
@@ -296,7 +302,7 @@ async def ilan_ver_command(ctx):
 
     await ctx.reply("Aşağıdaki butona tıklayarak ilan formunu doldurabilirsiniz:", view=IlanAcButonView(), delete_after=60)
 
-# === PREFIX VE SLASH KOMUTLARI (HERKESE AÇIK) ===
+# === PREFIX VE SLASH KOMUTLARI ===
 
 @bot.command(name="mesaj-sayım", aliases=["mesaj-sayim", "mesajsayim", "mesajsayım"])
 async def prefix_mesaj_sayim(ctx):
@@ -367,7 +373,7 @@ async def slash_cekilis(interaction: discord.Interaction, sure: str, odul: str, 
         iptal_embed = discord.Embed(title=f"❌ {odul} Çekilişi İptal Edildi", description="Katılım olmadı.", color=discord.Color.purple())
         await msg.edit(embed=iptal_embed, view=cekilis_view)
 
-@bot.tree.command(name="destek-panel", description="Görseldeki formatta kurallı lüks Destek panelini kurar.")
+@bot.tree.command(name="destek-panel", description="Destek panelini kurar.")
 async def slash_destek_panel(interaction: discord.Interaction):
     su_an = datetime.now().strftime("%d.%m.%Y %H:%M")
     
@@ -533,9 +539,8 @@ class DestekKanalIciView(View):
         await interaction.response.defer()
         
         channel = interaction.channel
-        await channel.send("🔒 Destek talebi kapatılıyor ve konuşma geçmişi kaydediliyor...")
+        await channel.send("🔒 Destek talebi kapatılıyor..." )
         
-        # TRANSKRİPT ALMA VE LOGLAMA İŞLEMLERİ
         messages = []
         async for msg in channel.history(limit=None, oldest_first=True):
             zaman = msg.created_at.strftime("%d.%m.%Y %H:%M:%S")
@@ -545,7 +550,6 @@ class DestekKanalIciView(View):
         
         log_kanali = interaction.guild.get_channel(DESTEK_LOG_KANAL_ID)
         if log_kanali:
-            # Metni bir dosya haline getirip log kanalına gönderiyoruz
             buffer = io.BytesIO(transcript_text.encode('utf-8'))
             file = discord.File(fp=buffer, filename=f"transcript-{channel.name}.txt")
             
@@ -779,7 +783,8 @@ class YetkiliBasvuruModal(Modal, title="MTTS Yetkili Başvuru Formu"):
         await interaction.response.send_message("✅ Başvurunuz yetkililere iletildi!", ephemeral=True)
 
 class YetkiliBasvuruView(View):
-    def __init__(self): super().__init__(timeout=None)
+    def __init__(self): 
+        super().__init__(timeout=None)
     @discord.ui.button(label="Başvuru Formunu Aç", style=discord.ButtonStyle.primary, custom_id="yb_form_ac")
     async def i_basvuru_ac(self, interaction: discord.Interaction, button: discord.Button):
         await interaction.response.send_modal(YetkiliBasvuruModal())
