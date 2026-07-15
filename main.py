@@ -23,13 +23,14 @@ ILAN_KANAL_ID = 1524866586912227330       # !ilan-ver komutunun çalışacağı 
 # === RANK-UP SİSTEMİ AYARLARI ===
 RANKUP_KANAL_ID = 1526885933977440266      # Seviye atlama mesajlarının gideceği kanal
 
-# Mesaj Rol ID'leri (20 ve 50 rolleri yer değiştirdi)
-ROL_20_ID = 1526713207027400915            
-ROL_50_ID = 1526713074164432997            
-ROL_150_ID = 1526713316548935751
-ROL_300_ID = 1526713378406535248
-ROL_500_ID = 1526713471893245973
-ROL_1000_ID = 1526713530576011435          
+# Mesaj Rol ID'leri
+ROL_KOMUR_ID = 1526713207027400915         # 20 Mesaj Rolü (Kömür)
+ROL_BAKIR_ID = 1526713074164432997         # 50 Mesaj Rolü (Bakır)
+ROL_DEMIR_ID = 1526713316548935751         # 150 Mesaj Rolü (Demir)
+ROL_ALTIN_ID = 1526713378406535248         # 300 Mesaj Rolü (Altın)
+ROL_ZUMRUT_ID = 1526713471893245973        # 500 Mesaj Rolü (Zümrüt)
+ROL_ELMAS_ID = 1526713530576011435         # 1000 Mesaj Rolü (Elmas)
+# ROL_NETHERIT_ID = 123456789012345678     # Gelecekte eklemek istersen buraya ID yazabilirsin
 
 # === VERİ TABANI (JSON) ===
 DATA_FILE = "user_messages.json"
@@ -111,25 +112,32 @@ async def on_message(message):
     current_count = user_messages[user_id]
     yeni_rol_id = None
     hedef_mesaj = 0
+    maden_adi = ""
 
     if current_count == 20:
-        yeni_rol_id = ROL_20_ID
+        yeni_rol_id = ROL_KOMUR_ID
         hedef_mesaj = 20
+        maden_adi = "Kömür"
     elif current_count == 50:
-        yeni_rol_id = ROL_50_ID
+        yeni_rol_id = ROL_BAKIR_ID
         hedef_mesaj = 50
+        maden_adi = "Bakır"
     elif current_count == 150:
-        yeni_rol_id = ROL_150_ID
+        yeni_rol_id = ROL_DEMIR_ID
         hedef_mesaj = 150
+        maden_adi = "Demir"
     elif current_count == 300:
-        yeni_rol_id = ROL_300_ID
+        yeni_rol_id = ROL_ALTIN_ID
         hedef_mesaj = 300
+        maden_adi = "Altın"
     elif current_count == 500:
-        yeni_rol_id = ROL_500_ID
+        yeni_rol_id = ROL_ZUMRUT_ID
         hedef_mesaj = 500
+        maden_adi = "Zümrüt"
     elif current_count == 1000:
-        yeni_rol_id = ROL_1000_ID
+        yeni_rol_id = ROL_ELMAS_ID
         hedef_mesaj = 1000
+        maden_adi = "Elmas"
 
     if yeni_rol_id:
         rol = message.guild.get_role(yeni_rol_id)
@@ -139,14 +147,16 @@ async def on_message(message):
                 
                 rankup_kanali = message.guild.get_channel(RANKUP_KANAL_ID)
                 if rankup_kanali:
+                    # Kullanıcıyı etiketlemeden sadece düz adını yazdırıyoruz:
                     embed = discord.Embed(
                         title="🎉 Tebrikler! Rol Kazanıldı!",
-                        description=f"{message.author.mention}, sunucuda **{hedef_mesaj}** mesaj sınırına ulaşarak {rol.mention} rolünü kazandı! 🚀",
+                        description=f"**{message.author.name}**, sunucuda **{hedef_mesaj}** mesaj sınırına ulaşarak **{rol.name}** rolünü kazandı! 🚀",
                         color=discord.Color.from_rgb(46, 204, 113)
                     )
                     embed.set_thumbnail(url=message.author.display_avatar.url)
                     embed.set_footer(text=f"Toplam Mesaj: {current_count}")
-                    await rankup_kanali.send(embed=embed)
+                    # send fonksiyonunda allowed_mentions kullanarak hiçbir şekilde etiket gitmemesini garantiye alıyoruz
+                    await rankup_kanali.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
             except Exception as e:
                 print(f"Rol verilirken veya log iletilirken hata oluştu: {e}")
 
@@ -341,7 +351,7 @@ class DestekPanelView(View):
         super().__init__(timeout=None)
         self.add_item(DestekDropdown())
 
-# === 2. REKLAM VE PİNG SİTEMLERİ ===
+# === 2. REKLAM VE PİNG SİSTEMLERİ ===
 class ReklamHizmetModal(Modal):
     def __init__(self, hizmet_turu: str, detaylar: str = ""):
         super().__init__(title=f"{hizmet_turu} Başvuru Formu")
