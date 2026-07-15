@@ -4,6 +4,7 @@ import random
 import asyncio
 import re
 import time
+import json
 from discord import app_commands
 from discord.ui import Select, Modal, TextInput, View
 from discord.ext import commands
@@ -19,6 +20,35 @@ YETKILI_ROL_ID = 987654321098765432        # Başvuru onaylanınca verilecek Yet
 ILAN_VER_ROL_ID = 1524866585637031958      # !ilan-ver komutunu kullanabilecek Özel Rol ID'si
 ILAN_KANAL_ID = 1524866586912227330       # !ilan-ver komutunun çalışacağı TEK KANAL ID'si
 
+# === RANK-UP SİSTEMİ AYARLARI ===
+RANKUP_KANAL_ID = 1526885933977440266      # Seviye atlama mesajlarının gideceği kanal
+
+# Mesaj Rol ID'leri (20 ve 50 rolleri yer değiştirdi)
+ROL_20_ID = 1526713207027400915            
+ROL_50_ID = 1526713074164432997            
+ROL_150_ID = 1526713316548935751
+ROL_300_ID = 1526713378406535248
+ROL_500_ID = 1526713471893245973
+ROL_1000_ID = 1526713530576011435          
+
+# === VERİ TABANI (JSON) ===
+DATA_FILE = "user_messages.json"
+
+def load_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_data(data):
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+user_messages = load_data()
+
 # === RENDER KEEPALIVE SİSTEMİ ===
 app = Flask('')
 
@@ -27,7 +57,6 @@ def home():
     return "MTTS Bot Aktif!"
 
 def run_web():
-    # Render'ın dinamik port atamasını yakalar, yoksa varsayılan 8080'de açar.
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -65,6 +94,63 @@ def parse_duration(duration_str: str) -> int:
     elif unit == 'h': return amount * 3600
     elif unit == 'd': return amount * 86400
     else: return amount
+
+# === OTOMATİK MESAJ SAYMA VE RANKUP SİSTEMİ ===
+@bot.event
+async def on_message(message):
+    if message.author.bot or not message.guild:
+        return
+
+    user_id = str(message.author.id)
+    if user_id not in user_messages:
+        user_messages[user_id] = 0
+    
+    user_messages[user_id] += 1
+    save_data(user_messages)
+    
+    current_count = user_messages[user_id]
+    yeni_rol_id = None
+    hedef_mesaj = 0
+
+    if current_count == 20:
+        yeni_rol_id = ROL_20_ID
+        hedef_mesaj = 20
+    elif current_count == 50:
+        yeni_rol_id = ROL_50_ID
+        hedef_mesaj = 50
+    elif current_count == 150:
+        yeni_rol_id = ROL_150_ID
+        hedef_mesaj = 150
+    elif current_count == 300:
+        yeni_rol_id = ROL_300_ID
+        hedef_mesaj = 300
+    elif current_count == 500:
+        yeni_rol_id = ROL_500_ID
+        hedef_mesaj = 500
+    elif current_count == 1000:
+        yeni_rol_id = ROL_1000_ID
+        hedef_mesaj = 1000
+
+    if yeni_rol_id:
+        rol = message.guild.get_role(yeni_rol_id)
+        if rol:
+            try:
+                await message.author.add_roles(rol)
+                
+                rankup_kanali = message.guild.get_channel(RANKUP_KANAL_ID)
+                if rankup_kanali:
+                    embed = discord.Embed(
+                        title="🎉 Tebrikler! Rol Kazanıldı!",
+                        description=f"{message.author.mention}, sunucuda **{hedef_mesaj}** mesaj sınırına ulaşarak {rol.mention} rolünü kazandı! 🚀",
+                        color=discord.Color.from_rgb(46, 204, 113)
+                    )
+                    embed.set_thumbnail(url=message.author.display_avatar.url)
+                    embed.set_footer(text=f"Toplam Mesaj: {current_count}")
+                    await rankup_kanali.send(embed=embed)
+            except Exception as e:
+                print(f"Rol verilirken veya log iletilirken hata oluştu: {e}")
+
+    await bot.process_commands(message)
 
 # === GİRİŞ VE ÇIKIŞ SİSTEMİ ===
 @bot.event
@@ -255,7 +341,7 @@ class DestekPanelView(View):
         super().__init__(timeout=None)
         self.add_item(DestekDropdown())
 
-# === 2. REKLAM VE PİNG SİSTEMLERİ ===
+# === 2. REKLAM VE PİNG SİTEMLERİ ===
 class ReklamHizmetModal(Modal):
     def __init__(self, hizmet_turu: str, detaylar: str = ""):
         super().__init__(title=f"{hizmet_turu} Başvuru Formu")
@@ -457,7 +543,7 @@ class RolDropdown(Select):
             discord.SelectOption(label="Klan Sahibi", value="klan", emoji="⚔️"),
             discord.SelectOption(label="Hosting Sahibi", value="hosting", emoji="🖥️"),
             discord.SelectOption(label="Takım Sahibi", value="takim", emoji="🛡️"),
-            discord.SelectOption(label="İçerik Üreticisi", value="icerik", emoji="🎥")  # İçerik Üreticisi eklendi
+            discord.SelectOption(label="İçerik Üreticisi", value="icerik", emoji="🎥")
         ]
         super().__init__(placeholder="Talep etmek istediğiniz rolü seçin", options=options, custom_id="rol_talep_dropdown")
 
@@ -467,7 +553,7 @@ class RolDropdown(Select):
             "klan": "Klan Sahibi", 
             "hosting": "Hosting Sahibi", 
             "takim": "Takım Sahibi",
-            "icerik": "İçerik Üreticisi"  # Map listesine eklendi
+            "icerik": "İçerik Üreticisi"
         }
         await interaction.response.send_modal(RolTalepModal(rol_label=rol_isimleri[self.values[0]]))
 
@@ -477,6 +563,28 @@ class RolBasvuruView(View):
         self.add_item(RolDropdown())
 
 # === 4. SLASH KOMUTLARI ===
+
+@bot.tree.command(name="mesaj-sayim", description="Mevcut toplam mesaj sayınızı ve bir sonraki role kalan farkı gösterir.")
+async def slash_mesaj_sayim(interaction: discord.Interaction):
+    user_id = str(interaction.user.id)
+    mesaj_sayisi = user_messages.get(user_id, 0)
+    
+    hedefler = [20, 50, 150, 300, 500, 1000]
+    sonraki_hedef = None
+    for h in hedefler:
+        if mesaj_sayisi < h:
+            sonraki_hedef = h
+            break
+            
+    hedef_metni = f"Bir sonraki role kalan mesaj: **{sonraki_hedef - mesaj_sayisi}**" if sonraki_hedef else "Tüm mesaj seviyelerine ulaştınız! 🎉"
+
+    embed = discord.Embed(
+        title="📊 Mesaj İstatistikleriniz",
+        description=f"Şu ana kadar toplam **{mesaj_sayisi}** adet mesaj gönderdiniz.\n\n{hedef_metni}",
+        color=discord.Color.blue()
+    )
+    embed.set_thumbnail(url=interaction.user.display_avatar.url)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="paketler", description="Reklam paketlerinin listesini gösterir.")
 async def slash_paketler(interaction: discord.Interaction):
@@ -594,10 +702,7 @@ async def slash_sil(interaction: discord.Interaction, miktar: int):
 
 # === ANA ÇALIŞTIRMA BLOĞU ===
 if __name__ == "__main__":
-    # 1. Render için Flask sunucusunu arka planda ayağa kaldırıyoruz
     keep_alive()
-    
-    # 2. Render Environment Variables panelinden DISCORD_TOKEN'ı çekiyoruz
     token = os.environ.get("DISCORD_TOKEN")
     
     if token:
@@ -606,4 +711,4 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"❌ Bot başlatılırken ölümcül hata: {e}")
     else:
-        print("❌ HATA: DISCORD_TOKEN bulunamadı! Lütfen Render panelinden Environment Variables kısmına tokeninizi ekleyin.")
+        print("❌ HATA: DISCORD_TOKEN bulunamadı!")
